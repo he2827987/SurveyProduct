@@ -1,0 +1,1595 @@
+<!-- question.index.vue -->
+<template>
+  <div class="question-container page-container">
+    <div class="flex-between">
+      <h1 class="page-title">题库管理</h1>
+      <el-button type="primary" @click="openQuestionDialog()">新增题目</el-button>
+    </div>
+    
+    <div class="question-content">
+      <!-- 左侧分类面板 -->
+      <div class="card category-panel">
+        <div class="flex-between panel-header">
+          <h3>题目分类</h3>
+          <el-button type="primary" link @click="openCategoryDialog(null)">
+            <el-icon><Plus /></el-icon>添加分类
+          </el-button>
+        </div>
+        
+        <el-input
+          v-model="categoryFilter"
+          placeholder="搜索分类"
+          clearable
+          class="filter-input"
+        />
+        
+        <el-tree
+          ref="categoryTreeRef"
+          :data="categories"
+          :props="defaultProps"
+          :filter-node-method="filterCategory"
+          node-key="id"
+          default-expand-all
+          highlight-current
+          @node-click="handleCategoryClick"
+        >
+          <template #default="{ node, data }">
+            <div class="category-node">
+              <span>{{ node.label }}</span>
+              <div class="category-count">({{ data.question_count || 0 }})</div>
+              <div class="category-actions">
+                <el-button type="primary" link @click.stop="openCategoryDialog(data)">
+                  <el-icon><Edit /></el-icon>
+                </el-button>
+                <el-popconfirm
+                  title="确定要删除该分类吗？"
+                  @confirm="removeCategory(node, data)"
+                  confirm-button-text="确定"
+                  cancel-button-text="取消"
+                >
+                  <template #reference>
+                    <el-button type="danger" link @click.stop>
+                      <el-icon><Delete /></el-icon>
+                    </el-button>
+                  </template>
+                </el-popconfirm>
+              </div>
+            </div>
+          </template>
+        </el-tree>
+        
+        <div class="filter-tags">
+          <h3>标签筛选</h3>
+          <div class="tags-container">
+            <el-tag
+              v-for="tag in filterTags"
+              :key="tag.name"
+              :type="tag.active ? '' : 'info'"
+              effect="light"
+              class="filter-tag"
+              @click="toggleTagFilter(tag)"
+              :class="{ 'active-tag': tag.active }"
+            >
+              {{ tag.name }} ({{ tag.count }})
+            </el-tag>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 右侧题目列表 -->
+      <div class="question-list-wrapper">
+        <!-- 搜索栏 -->
+        <div class="card search-bar">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜索题目（输入时自动搜索）"
+            clearable
+            class="search-input"
+          >
+            <template #append>
+              <el-button :icon="Search" @click="searchQuestions" title="立即搜索" />
+            </template>
+          </el-input>
+          
+          <div class="filters">
+            <el-select v-model="questionType" placeholder="题目类型" clearable class="filter-select">
+              <el-option label="全部类型" value="" />
+              <el-option label="单选题" value="single" />
+              <el-option label="多选题" value="multiple" />
+              <el-option label="填空题" value="text" />
+            </el-select>
+            
+            <el-select v-model="sortBy" placeholder="排序方式" class="filter-select">
+              <el-option label="创建时间降序" value="created_desc" />
+              <el-option label="创建时间升序" value="created_asc" />
+              <el-option label="使用次数降序" value="usage_desc" />
+              <el-option label="使用次数升序" value="usage_asc" />
+            </el-select>
+          </div>
+        </div>
+        
+        <!-- 题目列表 -->
+        <div class="card question-list">
+          <el-empty description="暂无数据" v-if="questionList.length === 0 && !loading"></el-empty>
+          
+          <div v-loading="loading" element-loading-text="加载中...">
+            <!-- 批量操作工具栏 -->
+            <div class="batch-actions" v-if="selectedQuestions.length > 0">
+              <span class="selected-count">已选择 {{ selectedQuestions.length }} 项</span>
+              
+              <div class="action-buttons">
+                <el-select v-model="batchCategory" placeholder="批量分类" size="small" class="batch-select">
+                  <el-option
+                    v-for="cat in flattenedCategories"
+                    :key="cat.id"
+                    :label="cat.name"
+                    :value="cat.id"
+                  />
+                </el-select>
+                
+                <el-button size="small" type="primary" @click="batchUpdateCategory" :disabled="!batchCategory">
+                  移动到该分类
+                </el-button>
+                
+                <el-button size="small" type="danger" @click="batchDeleteQuestions">
+                  批量删除
+                </el-button>
+              </div>
+            </div>
+            
+            <!-- 题目列表内容 -->
+            <el-table
+              :data="questionList"
+              style="width: 100%"
+              @selection-change="handleSelectionChange"
+            >
+              <el-table-column type="selection" width="55" />
+              
+              <el-table-column prop="text" label="题目标题" min-width="300">
+                <template #default="scope">
+                  <div class="question-item">
+                    <div class="question-type-tag">
+                      <el-tag :type="getQuestionTypeTag(scope.row.type).type" size="small">
+                        {{ getQuestionTypeTag(scope.row.type).label }}
+                      </el-tag>
+                    </div>
+                    <div class="question-title">{{ scope.row.text }}</div>
+                  </div>
+                </template>
+              </el-table-column>
+              
+              <el-table-column label="标签" width="250">
+                <template #default="scope">
+                  <div class="tag-list">
+                    <el-tag
+                      v-for="tag in scope.row.tags"
+                      :key="tag"
+                      size="small"
+                      effect="plain"
+                      class="tag-item"
+                    >
+                      {{ tag }}
+                    </el-tag>
+                    <el-button
+                      v-if="!scope.row.tags || scope.row.tags.length === 0"
+                      type="primary"
+                      link
+                      size="small"
+                      @click="openTagDialog(scope.row)"
+                    >
+                      添加标签
+                    </el-button>
+                  </div>
+                </template>
+              </el-table-column>
+              
+              <el-table-column prop="category_name" label="分类" width="120">
+                <template #default="scope">
+                  {{ scope.row.category_name || '未分类' }}
+                </template>
+              </el-table-column>
+              
+              <el-table-column prop="created_at" label="创建时间" width="150" />
+              
+              <el-table-column label="操作" width="200" fixed="right">
+                <template #default="scope">
+                  <el-button type="primary" link @click="openQuestionDialog(scope.row)">
+                    编辑
+                  </el-button>
+                  <el-button type="info" link @click="openDetailDialog(scope.row)">
+                    查看详情
+                  </el-button>
+                  <el-popconfirm
+                    title="确定要删除此题目吗？"
+                    @confirm="deleteQuestionHandler(scope.row)"
+                    confirm-button-text="确定"
+                    cancel-button-text="取消"
+                  >
+                    <template #reference>
+                      <el-button type="danger" link>删除</el-button>
+                    </template>
+                  </el-popconfirm>
+                </template>
+              </el-table-column>
+            </el-table>
+            
+            <!-- 分页 -->
+            <div class="pagination-container">
+              <el-pagination
+                v-model:current-page="currentPage"
+                v-model:page-size="pageSize"
+                :page-sizes="[10, 20, 50, 100]"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="totalQuestions"
+                :background="true"
+                :hide-on-single-page="false"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 新增/编辑题目对话框 -->
+    <el-dialog
+      v-model="questionDialog.visible"
+      :title="questionDialog.isEdit ? '编辑题目' : '新增题目'"
+      width="650px"
+      :destroy-on-close="true"
+    >
+      <el-form
+        ref="questionFormRef"
+        :model="questionForm"
+        :rules="questionRules"
+        label-width="80px"
+      >
+        <el-form-item label="标题" prop="text">
+          <el-input
+            v-model="questionForm.text"
+            placeholder="请输入题目标题"
+            maxlength="200"
+            show-word-limit
+            type="textarea"
+            :rows="2"
+          />
+        </el-form-item>
+        
+        <el-form-item label="题目类型" prop="type">
+          <el-select v-model="questionForm.type" placeholder="请选择题目类型" style="width: 100%">
+            <el-option label="单选题" value="single" />
+            <el-option label="多选题" value="multiple" />
+            <el-option label="填空题" value="text" />
+            <el-option label="数字题" value="number" />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item label="分类" prop="category_id">
+          <el-cascader
+            v-model="questionForm.category_id"
+            :options="categories"
+            :props="{
+              checkStrictly: true,
+              label: 'name',
+              value: 'id',
+              emitPath: false
+            }"
+            placeholder="请选择分类"
+            clearable
+            style="width: 100%"
+          />
+        </el-form-item>
+        
+        <el-form-item label="标签">
+          <el-select
+            v-model="questionForm.tags"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择或创建标签"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="tag in allTags"
+              :key="tag"
+              :label="tag"
+              :value="tag"
+            />
+          </el-select>
+        </el-form-item>
+        
+        <template v-if="questionForm.type === 'single' || questionForm.type === 'multiple'">
+          <el-divider content-position="left">选项设置</el-divider>
+          
+          <div class="options-list">
+            <div 
+              v-for="(option, index) in questionForm.options" 
+              :key="index"
+              class="option-item"
+            >
+              <el-input
+                v-model="questionForm.options[index]"
+                placeholder="请输入选项内容"
+              >
+                <template #prepend>
+                  <div class="option-label">{{ String.fromCharCode(65 + index) }}</div>
+                </template>
+                <template #append>
+                  <el-button @click="removeOption(index)" :disabled="questionForm.options.length <= 2">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </template>
+              </el-input>
+            </div>
+            
+            <div class="add-option">
+              <el-button text @click="addOption" :disabled="questionForm.options.length >= 10">
+                <el-icon><Plus /></el-icon> 添加选项
+              </el-button>
+            </div>
+          </div>
+        </template>
+        
+        <template v-if="questionForm.type === 'text' || questionForm.type === 'number'">
+          <el-divider content-position="left">{{ questionForm.type === 'text' ? '填空设置' : '数字设置' }}</el-divider>
+          
+          <el-form-item v-if="questionForm.type === 'text'" label="最大字数">
+            <el-input-number 
+              v-model="questionForm.max_length" 
+              :min="10" 
+              :max="2000" 
+              :step="10"
+            />
+          </el-form-item>
+          
+          <el-form-item v-if="questionForm.type === 'number'" label="最小值">
+            <el-input-number v-model="questionForm.min_value" :min="-999999" />
+          </el-form-item>
+          
+          <el-form-item v-if="questionForm.type === 'number'" label="最大值">
+            <el-input-number v-model="questionForm.max_value" :min="-999999" />
+          </el-form-item>
+        </template>
+      </el-form>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="questionDialog.visible = false">取消</el-button>
+          <el-button type="primary" @click="saveQuestion">确定</el-button>
+        </div>
+      </template>
+    </el-dialog>
+    
+    <!-- 分类操作对话框 -->
+    <el-dialog
+      v-model="categoryDialog.visible"
+      :title="categoryDialog.isEdit ? '编辑分类' : '添加分类'"
+      width="500px"
+    >
+      <el-form
+        ref="categoryFormRef"
+        :model="categoryForm"
+        :rules="categoryRules"
+        label-width="80px"
+      >
+        <el-form-item label="分类名称" prop="name">
+          <el-input v-model="categoryForm.name" placeholder="请输入分类名称" />
+        </el-form-item>
+        
+        <el-form-item label="分类描述">
+          <el-input 
+            v-model="categoryForm.description" 
+            type="textarea" 
+            :rows="3"
+            placeholder="请输入分类描述" 
+          />
+        </el-form-item>
+        
+        <el-form-item label="分类编码">
+          <el-input v-model="categoryForm.code" placeholder="请输入分类编码" />
+        </el-form-item>
+        
+        <el-form-item label="上级分类">
+          <el-cascader
+            v-model="categoryForm.parent_id"
+            :options="categories"
+            :props="{
+              checkStrictly: true,
+              label: 'name',
+              value: 'id',
+              emitPath: false
+            }"
+            placeholder="请选择上级分类"
+            clearable
+            style="width: 100%"
+          />
+        </el-form-item>
+        
+        <el-form-item label="排序">
+          <el-input-number v-model="categoryForm.sort_order" :min="0" style="width: 100%" />
+        </el-form-item>
+        
+        <el-form-item label="状态">
+          <el-switch v-model="categoryForm.is_active" />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="categoryDialog.visible = false">取消</el-button>
+          <el-button type="primary" @click="saveCategory">确定</el-button>
+        </div>
+      </template>
+    </el-dialog>
+    
+    <!-- 标签管理对话框 -->
+    <el-dialog
+      v-model="tagDialog.visible"
+      title="管理标签"
+      width="500px"
+    >
+      <el-form>
+        <el-form-item label="题目标签">
+          <el-select
+            v-model="tagDialog.tags"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择或创建标签"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="tag in allTags"
+              :key="tag"
+              :label="tag"
+              :value="tag"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="tagDialog.visible = false">取消</el-button>
+          <el-button type="primary" @click="saveTags">确定</el-button>
+        </div>
+      </template>
+    </el-dialog>
+    
+    <!-- 题目详情对话框 -->
+    <el-dialog
+      v-model="detailDialog.visible"
+      title="题目详情"
+      width="700px"
+      :destroy-on-close="true"
+    >
+      <div v-if="detailDialog.question" class="question-detail">
+        <!-- 基本信息 -->
+        <div class="detail-section">
+          <h3 class="section-title">基本信息</h3>
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="题目ID">{{ detailDialog.question.id }}</el-descriptions-item>
+            <el-descriptions-item label="创建者ID">{{ detailDialog.question.owner_id || '未知' }}</el-descriptions-item>
+            <el-descriptions-item label="创建者">{{ detailDialog.question.owner_name || '未知用户' }}</el-descriptions-item>
+            <el-descriptions-item label="题目类型">
+              <el-tag :type="getQuestionTypeTag(detailDialog.question.type).type">
+                {{ getQuestionTypeTag(detailDialog.question.type).label }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="分类">{{ detailDialog.question.category_name || '未分类' }}</el-descriptions-item>
+            <el-descriptions-item label="是否必填">
+              <el-tag :type="detailDialog.question.is_required ? 'danger' : 'info'" size="small">
+                {{ detailDialog.question.is_required ? '必填' : '选填' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ detailDialog.question.created_at }}</el-descriptions-item>
+            <el-descriptions-item label="更新时间">{{ detailDialog.question.updated_at || '未更新' }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
+        
+        <!-- 题目内容 -->
+        <div class="detail-section">
+          <h3 class="section-title">
+            题目内容
+            <el-button 
+              type="primary" 
+              link 
+              size="small" 
+              @click="copyQuestionText"
+              style="margin-left: 10px;"
+            >
+              <el-icon><DocumentCopy /></el-icon>
+              复制题目
+            </el-button>
+          </h3>
+          <div class="question-content">
+            <p class="question-text">{{ detailDialog.question.text }}</p>
+          </div>
+        </div>
+        
+        <!-- 选项信息 -->
+        <div class="detail-section" v-if="detailDialog.question.options && detailDialog.question.options.length > 0">
+          <h3 class="section-title">选项信息</h3>
+          <div class="options-list">
+            <div
+              v-for="(option, index) in detailDialog.question.options"
+              :key="index"
+              class="option-item"
+            >
+              <span class="option-label">{{ String.fromCharCode(65 + index) }}.</span>
+              <span class="option-text">{{ option.text }}</span>
+              <el-tag v-if="option.is_correct" type="success" size="small">正确答案</el-tag>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 标签信息 -->
+        <div class="detail-section">
+          <h3 class="section-title">标签信息</h3>
+          <div class="tags-container">
+            <el-tag
+              v-for="tag in detailDialog.question.tags"
+              :key="tag"
+              size="small"
+              effect="plain"
+              class="tag-item"
+            >
+              {{ tag }}
+            </el-tag>
+            <span v-if="!detailDialog.question.tags || detailDialog.question.tags.length === 0" class="no-tags">
+              暂无标签
+            </span>
+          </div>
+        </div>
+        
+        <!-- 使用统计 -->
+        <div class="detail-section">
+          <h3 class="section-title">使用统计</h3>
+          <el-descriptions :column="3" border>
+            <el-descriptions-item label="使用次数">{{ detailDialog.question.usage_count || 0 }}</el-descriptions-item>
+            <el-descriptions-item label="回答次数">{{ detailDialog.question.answer_count || 0 }}</el-descriptions-item>
+            <el-descriptions-item label="正确率">{{ detailDialog.question.correct_rate || '0%' }}</el-descriptions-item>
+          </el-descriptions>
+          <div class="statistics-note">
+            <el-alert
+              title="统计信息说明"
+              type="info"
+              :closable="false"
+              show-icon
+            >
+              <template #default>
+                <p>• 使用次数：该题目在调研中被使用的次数</p>
+                <p>• 回答次数：该题目收到的回答总数</p>
+                <p>• 正确率：选择题的正确回答比例（填空题暂无此统计）</p>
+              </template>
+            </el-alert>
+          </div>
+        </div>
+        
+        <!-- 题目属性 -->
+        <div class="detail-section">
+          <h3 class="section-title">题目属性</h3>
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="题目类型">
+              <el-tag :type="getQuestionTypeTag(detailDialog.question.type).type">
+                {{ getQuestionTypeTag(detailDialog.question.type).label }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="是否必填">
+              <el-tag :type="detailDialog.question.is_required ? 'danger' : 'info'" size="small">
+                {{ detailDialog.question.is_required ? '必填' : '选填' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="排序位置">{{ detailDialog.question.order || 0 }}</el-descriptions-item>
+            <el-descriptions-item label="选项数量">{{ detailDialog.question.options ? detailDialog.question.options.length : 0 }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
+      </div>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="detailDialog.visible = false">关闭</el-button>
+          <el-button type="success" @click="exportQuestionDetail">
+            <el-icon><Download /></el-icon>
+            导出详情
+          </el-button>
+          <el-button type="primary" @click="editFromDetail">编辑题目</el-button>
+        </div>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, watch, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Delete, Edit, Search, DocumentCopy, Download } from '@element-plus/icons-vue'
+import { createGlobalQuestion, getGlobalQuestions, updateQuestion, deleteQuestion, getQuestionCategoryTree, createQuestionCategory, updateQuestionCategory, deleteQuestionCategory, getQuestionTags } from '@/api/question'
+
+// 分类树数据
+const categories = ref([])
+const categoriesLoading = ref(false)
+
+// 展平的分类列表，用于下拉选择
+const flattenedCategories = computed(() => {
+  const result = []
+  
+  const flatten = (items, parentName = '') => {
+    items.forEach(item => {
+      const name = parentName ? `${parentName} / ${item.name}` : item.name
+      result.push({
+        id: item.id,
+        name
+      })
+      
+      if (item.children && item.children.length) {
+        flatten(item.children, name)
+      }
+    })
+  }
+  
+  flatten(categories.value)
+  return result
+})
+
+// 标签过滤数据
+const filterTags = ref([
+  { name: '员工福利', count: 8, active: false },
+  { name: '工作环境', count: 12, active: false },
+  { name: '团队协作', count: 5, active: false },
+  { name: '领导力', count: 7, active: false },
+  { name: '职业发展', count: 10, active: false },
+  { name: '公司文化', count: 6, active: false }
+])
+
+// 题目列表数据
+const questionList = ref([])
+
+// 所有标签
+const allTags = computed(() => {
+  return Array.from(new Set(filterTags.value.map(tag => tag.name)))
+})
+
+// 分类过滤
+const categoryFilter = ref('')
+const categoryTreeRef = ref(null)
+
+// 题目搜索
+const searchQuery = ref('')
+const questionType = ref('')
+const sortBy = ref('created_desc')
+const currentPage = ref(1)
+const pageSize = ref(10)  // 设置默认页面大小为10
+const totalQuestions = ref(0)
+const loading = ref(false)
+const searchTimer = ref(null) // 搜索防抖定时器
+
+// 多选
+const selectedQuestions = ref([])
+const batchCategory = ref(null)
+
+// 对话框
+const questionDialog = ref({
+  visible: false,
+  isEdit: false
+})
+
+const categoryDialog = ref({
+  visible: false,
+  isEdit: false
+})
+
+const tagDialog = ref({
+  visible: false,
+  currentQuestion: null,
+  tags: []
+})
+
+const detailDialog = ref({
+  visible: false,
+  question: null
+})
+
+// 表单
+const questionFormRef = ref(null)
+const questionForm = ref({
+  id: '',
+  text: '',
+  type: 'single_choice',
+  category_id: null,
+  tags: [],
+  options: ['选项A', '选项B', '选项C'],
+  max_length: 500
+})
+
+const categoryFormRef = ref(null)
+const categoryForm = ref({
+  id: '',
+  name: '',
+  description: '',
+  code: '',
+  parent_id: null,
+  sort_order: 0,
+  is_active: true
+})
+
+// 表单验证规则
+const questionRules = {
+  text : [
+    { required: true, message: '请输入题目标题', trigger: 'blur' },
+    { min: 3, max: 200, message: '长度在 3 到 200 个字符', trigger: 'blur' }
+  ],
+  type: [
+    { required: true, message: '请选择题目类型', trigger: 'change' }
+  ]
+}
+
+const categoryRules = {
+  name: [
+    { required: true, message: '请输入分类名称', trigger: 'blur' },
+    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+  ]
+}
+
+// 树属性
+const defaultProps = {
+  children: 'children',
+  label: 'name'
+}
+
+// 监听分类过滤输入
+watch(categoryFilter, (val) => {
+  if (categoryTreeRef.value) {
+    categoryTreeRef.value.filter(val)
+  }
+})
+
+// 获取分类树数据
+const fetchCategories = async () => {
+  categoriesLoading.value = true
+  try {
+    const response = await getQuestionCategoryTree()
+    categories.value = response || []
+  } catch (error) {
+    console.error('获取分类树失败:', error)
+    ElMessage.error('获取分类树失败: ' + (error.message || '未知错误'))
+    categories.value = []
+  } finally {
+    categoriesLoading.value = false
+  }
+}
+
+// 获取标签数据
+const fetchTags = async () => {
+  try {
+    const response = await getQuestionTags()
+    if (response && Array.isArray(response)) {
+      // 转换后端数据格式为前端格式
+      filterTags.value = response.map(tag => ({
+        name: tag.name,
+        count: tag.question_count || 0,
+        active: false
+      }))
+    }
+  } catch (error) {
+    console.error('获取标签失败:', error)
+    // 如果获取失败，使用默认标签数据
+    filterTags.value = [
+      { name: '员工福利', count: 8, active: false },
+      { name: '工作环境', count: 12, active: false },
+      { name: '团队协作', count: 5, active: false },
+      { name: '领导力', count: 7, active: false },
+      { name: '职业发展', count: 10, active: false },
+      { name: '公司文化', count: 6, active: false }
+    ]
+  }
+}
+
+// 获取问题列表
+const fetchQuestions = async () => {
+  loading.value = true
+  try {
+    // 构造查询参数
+    const params = {
+      skip: (currentPage.value - 1) * pageSize.value,
+      limit: pageSize.value,
+    }
+    // 添加类型筛选参数
+    if (questionType.value) {
+      params.type = questionType.value
+    }
+    // 添加搜索关键词
+    if (searchQuery.value && searchQuery.value.trim()) {
+      params.search = searchQuery.value.trim()
+    }
+    // 添加排序参数
+    if (sortBy.value) {
+      params.sort_by = sortBy.value
+    }
+    // 添加标签筛选参数
+    const activeTags = filterTags.value.filter(tag => tag.active).map(tag => tag.name)
+    if (activeTags.length > 0) {
+      params.tags = activeTags.join(',')
+    }
+
+    const response = await getGlobalQuestions(params)
+    
+    // 处理新的API响应格式
+    if (response && response.items) {
+      // 新格式：{ items: [...], total: 100, ... }
+      questionList.value = response.items
+      totalQuestions.value = response.total
+    } else if (Array.isArray(response)) {
+      // 兼容旧格式：直接返回数组
+      questionList.value = response
+      totalQuestions.value = response.length
+    } else {
+      // 其他情况
+      questionList.value = []
+      totalQuestions.value = 0
+    }
+    
+  } catch (error) {
+    console.error('获取题目列表失败:', error)
+    ElMessage.error('获取题目列表失败: ' + (error.message || '未知错误'))
+    questionList.value = [] // 失败时清空列表
+    totalQuestions.value = 0
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载数据
+onMounted(() => {
+  fetchQuestions()
+  fetchCategories()
+  fetchTags()
+})
+
+// 过滤分类
+const filterCategory = (value, data) => {
+  if (!value) return true
+  return data.name.includes(value)
+}
+
+// 点击分类
+const handleCategoryClick = (data) => {
+  // 根据分类筛选题目
+  ElMessage.success(`已选择分类: ${data.name}`)
+  // 实际项目中应调用接口重新加载题目列表
+}
+
+// 切换标签筛选
+const toggleTagFilter = (tag) => {
+  tag.active = !tag.active
+  currentPage.value = 1
+  fetchQuestions()
+}
+
+// 搜索题目
+const searchQuestions = () => {
+  currentPage.value = 1
+  fetchQuestions()
+}
+
+// 分页变化
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1  // 重置到第一页
+  fetchQuestions()
+}
+
+const handleCurrentChange = (page) => {
+  currentPage.value = page
+  fetchQuestions()
+}
+
+watch(questionType, () => {
+  currentPage.value = 1
+  fetchQuestions()
+})
+
+// 监听排序方式变化
+watch(sortBy, () => {
+  currentPage.value = 1
+  fetchQuestions()
+})
+
+// 监听搜索关键词变化，实现实时搜索
+watch(searchQuery, (newValue, oldValue) => {
+  // 防抖处理，避免频繁请求
+  if (searchTimer.value) {
+    clearTimeout(searchTimer.value)
+  }
+  
+  searchTimer.value = setTimeout(() => {
+    currentPage.value = 1
+    fetchQuestions()
+  }, 500) // 500ms 防抖延迟
+})
+
+// 表格多选
+const handleSelectionChange = (selection) => {
+  selectedQuestions.value = selection
+}
+
+// 批量更新分类
+const batchUpdateCategory = () => {
+  if (!batchCategory.value || selectedQuestions.value.length === 0) return
+  
+  const ids = selectedQuestions.value.map(item => item.id)
+  ElMessage.success(`已将 ${ids.length} 个题目移动到新分类`)
+  
+  // 实际项目中应调用接口进行更新
+  batchCategory.value = null
+}
+
+// 批量删除
+const batchDeleteQuestions = async () => {
+  if (selectedQuestions.value.length === 0) return
+  
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedQuestions.value.length} 个题目吗？`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    // 批量删除选中的题目
+    const deletePromises = selectedQuestions.value.map(question => 
+      deleteQuestion(question.id).catch(error => {
+        console.error(`删除题目 ${question.id} 失败:`, error)
+        return { success: false, id: question.id, error }
+      })
+    )
+    
+    const results = await Promise.allSettled(deletePromises)
+    
+    // 统计删除结果
+    const successCount = results.filter(result => 
+      result.status === 'fulfilled' && !result.value.error
+    ).length
+    const failCount = selectedQuestions.value.length - successCount
+    
+    if (successCount > 0) {
+      ElMessage.success(`成功删除 ${successCount} 个题目`)
+    }
+    if (failCount > 0) {
+      ElMessage.warning(`${failCount} 个题目删除失败`)
+    }
+    
+    // 清空选择
+    selectedQuestions.value = []
+    
+    // 计算删除后的分页情况
+    const totalAfterDelete = totalQuestions.value - successCount
+    const maxPage = Math.ceil(totalAfterDelete / pageSize.value)
+    
+    // 如果删除后当前页没有题目了，跳转到上一页
+    if (currentPage.value > maxPage && maxPage > 0) {
+      currentPage.value = maxPage
+    }
+    
+    // 刷新题目列表
+    await fetchQuestions()
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败: ' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 获取题目类型Tag
+const getQuestionTypeTag = (type) => {
+  const types = {
+    'single': { label: '单选题', type: 'primary' },
+    'multiple': { label: '多选题', type: 'success' },
+    'text': { label: '填空题', type: 'warning' },
+    'number': { label: '数字题', type: 'info' },
+    'single_choice': { label: '单选题', type: 'primary' },
+    'multi_choice': { label: '多选题', type: 'success' },
+    'text_input': { label: '填空题', type: 'warning' },
+    'number_input': { label: '数字题', type: 'info' }
+  }
+  return types[type] || { label: '未知', type: 'info' }
+}
+
+// 打开新增/编辑题目对话框
+const openQuestionDialog = (question = null) => {
+  questionDialog.value.isEdit = !!question
+  
+  if (question) {
+    // 编辑模式，填充表单
+    const questionData = JSON.parse(JSON.stringify(question))
+    
+    // 转换题目类型为前端格式
+    questionData.type = mapQuestionTypeForUI(questionData.type)
+    
+    // 处理选项数据
+    if (questionData.options && typeof questionData.options === 'string') {
+      try {
+        questionData.options = JSON.parse(questionData.options)
+      } catch (e) {
+        questionData.options = []
+      }
+    }
+    
+    // 设置默认值
+    if (!questionData.options) {
+      questionData.options = ['选项A', '选项B', '选项C']
+    }
+    if (!questionData.max_length) {
+      questionData.max_length = 500
+    }
+    if (!questionData.tags) {
+      questionData.tags = []
+    }
+    
+    questionForm.value = questionData
+  } else {
+    // 新增模式，重置表单
+    questionForm.value = {
+      id: '',
+      text: '',
+      type: 'single',
+      category_id: null,
+      tags: [],
+      options: ['选项A', '选项B', '选项C'],
+      max_length: 500,
+      min_value: 0,
+      max_value: 999999
+    }
+  }
+  
+  questionDialog.value.visible = true
+}
+
+// 添加选项
+const addOption = () => {
+  if (questionForm.value.options.length < 10) {
+    questionForm.value.options.push('')
+  }
+}
+
+// 移除选项
+const removeOption = (index) => {
+  if (questionForm.value.options.length > 2) {
+    questionForm.value.options.splice(index, 1)
+  }
+}
+
+// 保存题目
+const saveQuestion = () => {
+  console.log("开始调用 saveQuestion 函数...");
+  console.log("调用 validate 前的 questionForm.value:", questionForm.value);
+  questionFormRef.value.validate(async (valid) => {
+    console.log("表单验证回调被调用，valid 的值是:", valid); // <-- 新增
+    if (valid) {
+      console.log("表单验证通过，开始处理表单数据...");
+      try {
+        // 1. 深拷贝表单数据，避免修改原始表单
+        const payload = JSON.parse(JSON.stringify(questionForm.value))
+        
+        // 2. 转换 type 字段
+        payload.type = mapQuestionTypeForApi(payload.type)
+        
+        // 3. 处理选项字段 - 填空题和数字题不应该有选项
+        if (payload.type === 'text_input' || payload.type === 'number_input') {
+          payload.options = null
+        }
+        
+        // 4. 确保 survey_id 为 null 表示存入全局题库
+        payload.survey_id = null
+
+        let response
+        if (questionDialog.value.isEdit) {
+          // 编辑现有题目
+          response = await updateQuestion(payload.id, payload) // 使用 payload
+          ElMessage.success('题目更新成功')
+          // 刷新题目列表以获取最新数据
+          await fetchQuestions()
+        } else {
+          // --- 修改：添加新题目 (调用全局题库 API) ---
+          console.log("开始调用 createGlobalQuestion API...");
+          // 调用 API 创建题目
+          console.log("即将执行: await createGlobalQuestion(payload)");
+          response = await createGlobalQuestion(payload) // <-- 确保是 payload
+          console.log('后端 createGlobalQuestion 响应:', response); // 调试用
+          
+          ElMessage.success('题目添加成功')
+          // 刷新题目列表以获取最新数据
+          await fetchQuestions()
+          console.log("saveQuestion 函数执行完成（新增分支）。");
+        }
+        questionDialog.value.visible = false
+      } catch (error) {
+        console.error('=== 捕获到错误 ===');
+        console.error('保存题目失败:', error);
+        console.error('错误对象详情:', error); // 打印完整错误对象
+        console.error('错误堆栈:', error.stack); // 打印堆栈信息
+        let errorMsg = '未知错误'
+        // 尝试从 error 对象中提取更具体的后端错误信息
+        if (error.response) {
+            console.error('错误响应对象 (error.response):', error.response);
+            if (error.response.data) {
+                console.error('错误响应数据 (error.response.data):', error.response.data);
+                if (error.response.data.detail) {
+                    errorMsg = JSON.stringify(error.response.data.detail);
+                } else {
+                    // 如果 detail 不存在，尝试直接 stringify data
+                    errorMsg = JSON.stringify(error.response.data);
+                }
+            } else {
+                errorMsg = `HTTP Error: ${error.response.status} ${error.response.statusText}`;
+            }
+        } else if (error.request) {
+            console.error('错误请求对象 (error.request):', error.request);
+            errorMsg = '网络请求失败，请检查网络连接或后端服务。';
+        } else {
+            errorMsg = error.message || '未知错误';
+        }
+        ElMessage.error('保存题目失败: ' + errorMsg);
+      }
+    } else {
+        console.log("表单验证未通过。");
+        ElMessage.warning('请检查表单输入是否正确。'); // <-- 新增用户提示
+    }
+  })
+}
+
+// 删除题目
+const deleteQuestionHandler = async (question) => { // 更改函数名以避免与导入的 deleteQuestion 冲突
+  try {
+    await deleteQuestion(question.id)
+    ElMessage.success('题目删除成功')
+    
+    // 计算删除后的分页情况
+    const totalAfterDelete = totalQuestions.value - 1
+    const maxPage = Math.ceil(totalAfterDelete / pageSize.value)
+    
+    // 如果删除后当前页没有题目了，跳转到上一页
+    if (currentPage.value > maxPage && maxPage > 0) {
+      currentPage.value = maxPage
+    }
+    
+    // 刷新题目列表以获取最新数据
+    await fetchQuestions()
+  } catch (error) {
+    console.error('删除题目失败:', error)
+    ElMessage.error('删除题目失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 打开分类对话框
+const openCategoryDialog = (category = null) => {
+  categoryDialog.value.isEdit = !!category
+  
+  if (category) {
+    // 编辑模式
+    categoryForm.value = {
+      id: category.id,
+      name: category.name,
+      parent_id: category.parent_id || null
+    }
+  } else {
+    // 新增模式
+    categoryForm.value = {
+      id: '',
+      name: '',
+      parent_id: null
+    }
+  }
+  
+  categoryDialog.value.visible = true
+}
+
+// 保存分类
+const saveCategory = async () => {
+  categoryFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        if (categoryDialog.value.isEdit) {
+          // 编辑现有分类
+          await updateQuestionCategory(categoryForm.value.id, {
+            name: categoryForm.value.name,
+            description: categoryForm.value.description,
+            code: categoryForm.value.code,
+            parent_id: categoryForm.value.parent_id,
+            sort_order: categoryForm.value.sort_order,
+            is_active: categoryForm.value.is_active
+          })
+          ElMessage.success('分类更新成功')
+        } else {
+          // 添加新分类
+          await createQuestionCategory({
+            name: categoryForm.value.name,
+            description: categoryForm.value.description,
+            code: categoryForm.value.code,
+            parent_id: categoryForm.value.parent_id,
+            sort_order: categoryForm.value.sort_order,
+            is_active: categoryForm.value.is_active
+          })
+          ElMessage.success('分类添加成功')
+        }
+        
+        // 重新获取分类数据
+        await fetchCategories()
+        categoryDialog.value.visible = false
+      } catch (error) {
+        console.error('保存分类失败:', error)
+        ElMessage.error('保存分类失败: ' + (error.message || '未知错误'))
+      }
+    }
+  })
+}
+
+// 移除分类
+const removeCategory = async (node, data) => {
+  try {
+    await deleteQuestionCategory(data.id)
+    ElMessage.success('分类删除成功')
+    // 重新获取分类数据
+    await fetchCategories()
+  } catch (error) {
+    console.error('删除分类失败:', error)
+    ElMessage.error('删除分类失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 打开标签对话框
+const openTagDialog = (question) => {
+  tagDialog.value.currentQuestion = question
+  tagDialog.value.tags = [...question.tags]
+  tagDialog.value.visible = true
+}
+
+// 保存标签
+const saveTags = () => {
+  if (tagDialog.value.currentQuestion) {
+    tagDialog.value.currentQuestion.tags = [...tagDialog.value.tags]
+    ElMessage.success('标签更新成功')
+  }
+  
+  tagDialog.value.visible = false
+}
+
+// 打开题目详情对话框
+const openDetailDialog = (question) => {
+  detailDialog.value.question = question
+  detailDialog.value.visible = true
+}
+
+// 从详情对话框编辑题目
+const editFromDetail = () => {
+  openQuestionDialog(detailDialog.value.question)
+}
+
+// 复制题目文本
+const copyQuestionText = () => {
+  if (detailDialog.value.question) {
+    ElMessage.success('题目文本已复制到剪贴板！')
+    navigator.clipboard.writeText(detailDialog.value.question.text)
+  }
+}
+
+// 导出题目详情
+const exportQuestionDetail = () => {
+  if (detailDialog.value.question) {
+    const data = JSON.stringify(detailDialog.value.question, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${detailDialog.value.question.text.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    ElMessage.success('题目详情已导出！');
+  } else {
+    ElMessage.warning('请先选择一个题目。');
+  }
+};
+
+// 将前端 UI 的类型值映射为后端 API 的枚举值
+const mapQuestionTypeForApi = (uiType) => {
+  const mapping = {
+    'single': 'single_choice',
+    'multiple': 'multi_choice',
+    'text': 'text_input',
+    'number': 'number_input'
+  }
+  return mapping[uiType] || uiType // 如果找不到映射，就返回原值
+}
+
+// 将后端 API 的枚举值映射为前端 UI 的类型值
+const mapQuestionTypeForUI = (apiType) => {
+  const mapping = {
+    'single_choice': 'single',
+    'multi_choice': 'multiple',
+    'text_input': 'text',
+    'number_input': 'number'
+  }
+  return mapping[apiType] || apiType
+}
+</script>
+
+<style scoped>
+.question-content {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.category-panel {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.question-list-wrapper {
+  flex: 1;
+}
+
+.panel-header {
+  margin-bottom: 15px;
+}
+
+.filter-input {
+  margin-bottom: 15px;
+}
+
+.category-node {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.category-count {
+  margin-left: 5px;
+  color: #909399;
+}
+
+.category-actions {
+  display: none;
+  margin-left: auto;
+}
+
+.category-node:hover .category-actions {
+  display: flex;
+}
+
+.filter-tags {
+  margin-top: 20px;
+}
+
+.tags-container {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-tag {
+  cursor: pointer;
+}
+
+.active-tag {
+  font-weight: bold;
+}
+
+.search-bar {
+  margin-bottom: 20px;
+  padding: 15px;
+}
+
+.search-input {
+  margin-bottom: 15px;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-select {
+  width: 150px;
+}
+
+.batch-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f0f9ff;
+  padding: 8px 16px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+}
+
+.selected-count {
+  font-weight: bold;
+  color: #409EFF;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.batch-select {
+  width: 180px;
+}
+
+.question-item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.question-type-tag {
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.question-title {
+  word-break: break-word;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-item {
+  margin-right: 4px;
+}
+
+.options-list {
+  margin-bottom: 20px;
+}
+
+.option-item {
+  margin-bottom: 10px;
+}
+
+.option-label {
+  width: 30px;
+  text-align: center;
+}
+
+.add-option {
+  margin-top: 10px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 0;
+  margin-top: 20px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.pagination-container .el-pagination {
+  --el-pagination-bg-color: #ffffff;
+  --el-pagination-text-color: #606266;
+  --el-pagination-border-radius: 4px;
+  --el-pagination-button-color: #606266;
+  --el-pagination-button-bg-color: #ffffff;
+  --el-pagination-button-disabled-color: #c0c4cc;
+  --el-pagination-button-disabled-bg-color: #ffffff;
+  --el-pagination-hover-color: #409eff;
+}
+
+.question-detail {
+  padding: 20px;
+}
+
+.detail-section {
+  margin-bottom: 30px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  border-bottom: 2px solid #409eff;
+  padding-bottom: 8px;
+  color: #303133;
+}
+
+.question-content .question-text {
+  font-size: 16px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 4px solid #409eff;
+}
+
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e4e7ed;
+}
+
+.option-item .option-label {
+  font-weight: bold;
+  color: #409eff;
+  margin-right: 10px;
+  min-width: 30px;
+}
+
+.option-item .option-text {
+  flex: 1;
+  font-size: 15px;
+  color: #333;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-item {
+  margin: 0;
+}
+
+.no-tags {
+  color: #909399;
+  font-style: italic;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px dashed #dcdfe6;
+}
+
+.statistics-note {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e4e7ed;
+}
+
+.statistics-note p {
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #606266;
+}
+
+@media (max-width: 768px) {
+  .question-content {
+    flex-direction: column;
+  }
+  
+  .category-panel {
+    width: 100%;
+  }
+  
+  .category-actions {
+    display: flex;
+  }
+}
+</style> 
