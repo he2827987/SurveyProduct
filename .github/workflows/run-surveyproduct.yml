@@ -9,6 +9,17 @@ on:  # 触发事件（push 到 main 时运行）
 jobs:
   build-and-run:
     runs-on: ubuntu-latest  # 使用 Ubuntu 虚拟机
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: survey_product
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     steps:
     - uses: actions/checkout@v4  # 拉取你的 SurveyProduct 代码
     - name: Set up Python  # 如果是 Python 项目
@@ -21,6 +32,13 @@ jobs:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: survey_product_doc/frontend/package-lock.json
+    - name: Wait for MySQL to be ready  # 等待 MySQL 服务启动
+      run: |
+        while ! mysqladmin ping -h"127.0.0.1" -P3306 -uroot -proot --silent; do
+          echo "Waiting for MySQL to start..."
+          sleep 2
+        done
+        echo "MySQL is ready!"
     - name: Install Python dependencies  # 安装 Python 依赖
       run: |
         python -m pip install --upgrade pip
@@ -31,9 +49,16 @@ jobs:
         cd survey_product_doc/frontend
         npm install
     - name: Run the backend project  # 启动后端服务
+      env:
+        DATABASE_URL: mysql+pymysql://testuser:testpass@127.0.0.1:3306/survey_product
+        MYSQL_HOST: 127.0.0.1
+        MYSQL_PORT: 3306
+        MYSQL_USER: testuser
+        MYSQL_PASSWORD: testpass
+        MYSQL_DATABASE: survey_product
       run: |
-        cd survey_product_doc
-        python -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+        cd survey_product_doc/backend
+        python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
     - name: Run the frontend project  # 启动前端服务
       run: |
         cd survey_product_doc/frontend
