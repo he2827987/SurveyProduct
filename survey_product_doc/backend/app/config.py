@@ -5,7 +5,7 @@ import os
 
 class Settings(BaseSettings):
     # 数据库配置
-    DATABASE_URL: str = "mysql+pymysql://root@localhost:3306/survey_db"
+    DATABASE_URL: str = "mysql+pymysql://testuser:testpass@127.0.0.1:3306/survey_db"
     # 或者更简洁地写成
     # DATABASE_URL: str
 
