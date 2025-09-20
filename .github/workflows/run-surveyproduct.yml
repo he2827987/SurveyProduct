@@ -28,13 +28,13 @@ jobs:
         pip install -r requirements.txt
     - name: Install frontend dependencies  # 安装前端依赖
       run: |
-        cd survey_product_doc/frontend
+        cd survey_product_doc
         npm install
     - name: Run the backend project  # 启动后端服务
       run: |
-        cd survey_product_doc/backend
-        python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+        cd survey_product_doc
+        python -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
     - name: Run the frontend project  # 启动前端服务
       run: |
-        cd survey_product_doc/frontend
+        cd survey_product_doc
         npm run dev
