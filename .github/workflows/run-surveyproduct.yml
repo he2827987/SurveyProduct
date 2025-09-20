@@ -14,7 +14,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: survey_product
+          MYSQL_DATABASE: survey_db
           MYSQL_USER: testuser
           MYSQL_PASSWORD: testpass
         ports:
@@ -50,12 +50,12 @@ jobs:
         npm install
     - name: Run the backend project  # 启动后端服务
       env:
-        DATABASE_URL: mysql+pymysql://testuser:testpass@127.0.0.1:3306/survey_product
+        DATABASE_URL: mysql+pymysql://testuser:testpass@127.0.0.1:3306/survey_db
         MYSQL_HOST: 127.0.0.1
         MYSQL_PORT: 3306
         MYSQL_USER: testuser
         MYSQL_PASSWORD: testpass
-        MYSQL_DATABASE: survey_product
+        MYSQL_DATABASE: survey_db
       run: |
         cd survey_product_doc/backend
         python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
