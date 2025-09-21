@@ -42,7 +42,8 @@ def check_database_connection():
         
         # 尝试连接数据库
         with engine.connect() as connection:
-            result = connection.execute("SELECT 1")
+            from sqlalchemy import text
+            result = connection.execute(text("SELECT 1"))
             print("✅ 数据库连接成功!")
             return True
             
