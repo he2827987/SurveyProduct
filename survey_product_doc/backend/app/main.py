@@ -1,14 +1,22 @@
 # backend/app/main.py
 
-import os
-print("--- FastAPI App Startup Debug ---")
-print(f"1. Current Working Directory: {os.getcwd()}")
-print(f"2. __file__ of main.py: {__file__}")
-print(f"3. OPENROUTER_API_KEY in os.environ (preview): {os.environ.get('OPENROUTER_API_KEY', 'NOT_FOUND')[:15] + '...' if len(os.environ.get('OPENROUTER_API_KEY', '')) > 15 else 'Too_Short/Not_Found'}")
-print("--- End Debug ---")
+# ---------------------------------------------------------------------------
+# IMPORTANT: Make sure this file is located at backend/app/main.py relative
+# to your project's root directory.
+#
+# For Render deployment, the command executed is often `python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+#
+# Ensure your frontend is built using `npm run build` (or similar) and outputs
+# static files (index.html, JS, CSS, etc.) into a predictable directory.
+# ---------------------------------------------------------------------------
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles # <-- 1. 导入 StaticFiles
+
+# --- 导入你的数据库模型和API路由 ---
+# 确保你的数据库配置和API路由导入是正确的
 from backend.app.database import engine, Base
 from backend.app.api import user_api
 from backend.app.api import survey_api
@@ -20,32 +28,79 @@ from backend.app.api import department_api
 from backend.app.api import participant_api
 from backend.app.api import analytics_api, category_api, tag_api, analysis_api
 
-# 创建所有数据库表
+# --- 数据库初始化 ---
+# 这一步会确保你的数据库表被创建。
+# 在生产环境中，可能更倾向于使用 alembic 或其他迁移工具。
 Base.metadata.create_all(bind=engine)
 
+# --- FastAPI 应用初始化 ---
 app = FastAPI(
     title="Survey Product Document API",
     description="API for managing surveys, questions, answers, users, and organizations.",
     version="0.1.0",
 )
 
-# 添加 CORS 中间件
-origins = [
+# --- 2. 定义前端构建输出目录 ---
+# !!! 非常重要 !!!
+# 请根据你 'npm run build' 命令的实际输出目录进行调整。
+# 假设你的项目结构是:
+# /your_repo_root
+#   ├── backend/
+#   │   └── app/
+#   │       └── main.py
+#   └── survey_product_doc/
+#       └── frontend/
+#           ├── ... (src files)
+#           └── dist/  <-- 你的 build output here
+#
+# 如果你的 `npm run build` 输出到 'build' 目录，请改为:
+# STATIC_FRONTEND_DIR = "survey_product_doc/frontend/build"
+# 如果输出到 'out' 目录，请改为:
+# STATIC_FRONTEND_DIR = "survey_product_doc/frontend/out"
+#
+# 这里的路径是相对于 Render 部署时运行 'uvicorn' 命令的当前工作目录 (通常是项目根目录)。
+STATIC_FRONTEND_DIR = "survey_product_doc/frontend/dist"
+
+# --- 3. 挂载前端静态文件 ---
+# 使用 StaticFiles 将前端构建后的静态文件挂载到根 URL "/"。
+# 'html=True' 参数对于 Single Page Applications (SPA) 至关重要，
+# 它能确保当用户访问一个不存在的路由时（如 /dashboard），
+# FastAPI 返回 index.html，让前端的路由库（如 Vue Router, React Router）来处理。
+# 这个 mount 调用应该放在前面，因为它会处理根路径的请求。
+app.mount("/", StaticFiles(directory=STATIC_FRONTEND_DIR, html=True), name="static")
+
+
+# --- CORS 中间件配置 ---
+# 本地开发时用的源
+local_origins = [
     "http://localhost:5173", # Vite 默认端口
-    "http://localhost:8080", # Vue CLI 默认端口 (如果适用)
-    "http://127.0.0.1:5173", # 也允许 127.0.0.1 形式
-    # 你可以添加其他需要允许的源，例如生产环境的域名
-    # "https://yourdomain.com"
+    "http://localhost:8080", # Vue CLI 默认端口 (if applicable)
+    "http://127.0.0.1:5173",
 ]
+
+# !!! 生产环境安全建议 !!!
+# 如果你的前端部署在 Render 上，并且将通过 Render 提供的 URL `https://your-service-name.onrender.com` 访问，
+# 请将该 URL 添加到 origins 列表中。
+# 暂时保留 "*" 和本地源，方便你在 Render initial deploy 时测试，
+# 但部署成功后，请务必收紧 allow_origins，移除 "*"！
+# 例如:
+# render_origin = os.environ.get("RENDER_FRONTEND_URL") # 可以在 Render 环境变量中设置
+# if render_origin:
+#     origins.append(render_origin)
+# else:
+#     # Fallback or warn, depending on your setup
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 允许所有源
+    allow_origins=["*", *local_origins],  # 暂时允许所有源 + 本地开发源，生产请收紧！
     allow_credentials=True,
-    allow_methods=["*"],  # 允许所有方法
-    allow_headers=["*"],  # 允许所有头
+    allow_methods=["*"],  # 允许所有 HTTP 方法
+    allow_headers=["*"],  # 允许所有请求头
 )
 
-# 注册 API 路由
+
+# --- 注册 API 路由 ---
+# 这些路由都带有 "/api/v1/" 前缀，因此不会与根目录的静态文件服务冲突。
 app.include_router(user_api.router, tags=["user"], prefix="/api/v1")
 app.include_router(survey_api.router, tags=["survey"], prefix="/api/v1")
 app.include_router(question_api.router, tags=["question"], prefix="/api/v1")
@@ -59,19 +114,24 @@ app.include_router(category_api.router, tags=["category"], prefix="/api/v1")
 app.include_router(tag_api.router, tags=["tag"], prefix="/api/v1")
 app.include_router(analysis_api.router, tags=["analysis"], prefix="/api/v1")
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the Survey Product Document API!"}
+# --- 移除了旧的根路由 ---
+# 你原有的 @app.get("/") 函数已被移除，因为它会被 app.mount("/", ...) 覆盖。
+# 原有的 read_root 函数返回 JSON 消息，现在根路径("/")将服务你的前端 index.html。
 
+# --- 保留其他测试或健康检查路由 ---
+# 这些路由不会与静态文件服务或API路由冲突
 @app.get("/test")
 def test_endpoint():
     return {"message": "Test endpoint working!"}
 
 @app.get("/api/v1/health")
 def health_check():
+    # 建议使用一些动态获取的时间戳，而不是硬编码
+    import datetime
     return {
         "status": "healthy",
         "message": "Survey API is running",
-        "timestamp": "2024-01-01T00:00:00Z"
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
 
+# --- END OF FILE ---
