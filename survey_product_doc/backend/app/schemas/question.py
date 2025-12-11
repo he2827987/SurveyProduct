@@ -7,9 +7,20 @@
 
 # ===== 导入依赖 =====
 from pydantic import BaseModel, Field, validator
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Union
 from datetime import datetime
 from backend.app.models.question import QuestionType
+import json
+
+# ===== 选项模型 =====
+
+class QuestionOption(BaseModel):
+    """
+    问题选项模型
+    """
+    text: str = Field(..., description="选项文本")
+    score: Optional[int] = Field(None, description="选项分值")
+    is_correct: Optional[bool] = Field(False, description="正确选项")
 
 # ===== 基础问题模型 =====
 
@@ -22,33 +33,45 @@ class QuestionBase(BaseModel):
     type: QuestionType = Field(..., description="问题类型")
     is_required: bool = Field(False, description="是否必填")
     order: int = Field(0, description="问题在问卷中的排序")
-    options: Optional[List[str]] = Field(None, description="选择题的选项列表")
+    category_id: Optional[int] = Field(None, description="分类ID")
+    options: Optional[List[Union[QuestionOption, str]]] = Field(None, description="选择题的选项列表")
+    min_score: Optional[int] = Field(0, description="选项分值最小值")
+    max_score: Optional[int] = Field(10, description="选项分值最大值")
+    tags: Optional[List[str]] = Field(None, description="题目标签列表")
 
     @validator('options', pre=True, always=True)
     def validate_options_for_type(cls, v, values):
         """
         验证选项字段与问题类型的匹配性
-        
-        Args:
-            v: 选项值
-            values: 其他字段的值
-            
-        Returns:
-            验证后的选项值
-            
-        Raises:
-            ValueError: 当选项与问题类型不匹配时
         """
+        # 如果是字符串（从数据库读取时），尝试解析为JSON
+        if isinstance(v, str):
+            try:
+                v = json.loads(v)
+            except json.JSONDecodeError:
+                pass
+
         q_type = values.get('type')
         if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTI_CHOICE]:
             # 选择题类型必须提供选项
             if not v:
                 raise ValueError("选择题类型必须提供选项")
-            if not isinstance(v, list) or not all(isinstance(item, str) for item in v):
-                raise ValueError("选项必须是字符串列表")
+            if not isinstance(v, list):
+                raise ValueError("选项必须是列表")
+            
+            # 验证列表项
+            for item in v:
+                if isinstance(item, str):
+                    continue
+                if isinstance(item, dict) or isinstance(item, QuestionOption):
+                    continue
+                raise ValueError("选项必须是字符串或包含text, score, is_correct的对象")
+                
         elif v is not None and q_type in [QuestionType.TEXT_INPUT, QuestionType.NUMBER_INPUT]:
             # 文本或数字输入类型不能有选项
-            raise ValueError("文本或数字输入类型的问题不能有选项")
+            # 注意：如果是空列表，也可以接受
+            if isinstance(v, list) and len(v) > 0:
+                raise ValueError("文本或数字输入类型的问题不能有选项")
         return v
 
 # ===== 问题创建模型 =====
@@ -74,7 +97,9 @@ class QuestionUpdate(QuestionBase):
     type: Optional[QuestionType] = Field(None, description="问题类型")
     is_required: Optional[bool] = Field(None, description="是否必填")
     order: Optional[int] = Field(None, description="问题在问卷中的排序")
-    options: Optional[List[str]] = Field(None, description="选择题的选项列表")
+    options: Optional[List[Union[QuestionOption, str]]] = Field(None, description="选择题的选项列表")
+    min_score: Optional[int] = Field(None, description="选项分值最小值")
+    max_score: Optional[int] = Field(None, description="选项分值最大值")
 
     @validator('options', pre=True, always=True)
     def validate_options_for_update(cls, v, values):
@@ -91,16 +116,31 @@ class QuestionUpdate(QuestionBase):
         Raises:
             ValueError: 当选项与问题类型不匹配时
         """
+        if isinstance(v, str):
+            try:
+                v = json.loads(v)
+            except json.JSONDecodeError:
+                pass
+
         # 在更新时，如果类型没有改变，或者改变为选择题，才需要验证选项
         if 'type' in values and values['type'] in [QuestionType.SINGLE_CHOICE, QuestionType.MULTI_CHOICE]:
             # 选择题类型必须提供选项
             if not v:
                 raise ValueError("选择题类型必须提供选项")
-            if not isinstance(v, list) or not all(isinstance(item, str) for item in v):
-                raise ValueError("选项必须是字符串列表")
+            if not isinstance(v, list):
+                raise ValueError("选项必须是列表")
+            
+            for item in v:
+                if isinstance(item, str):
+                    continue
+                if isinstance(item, dict) or isinstance(item, QuestionOption):
+                    continue
+                raise ValueError("选项必须是字符串或包含text, score, is_correct的对象")
+
         elif 'type' in values and v is not None and values['type'] in [QuestionType.TEXT_INPUT, QuestionType.NUMBER_INPUT]:
             # 文本或数字输入类型不能有选项
-            raise ValueError("文本或数字输入类型的问题不能有选项")
+            if isinstance(v, list) and len(v) > 0:
+                raise ValueError("文本或数字输入类型的问题不能有选项")
         return v
 
 # ===== 问题响应模型 =====
@@ -118,6 +158,27 @@ class QuestionResponse(QuestionBase):
     usage_count: Optional[int] = 0  # 添加使用次数字段
     created_at: Optional[datetime] = None  # 创建时间
     updated_at: Optional[datetime] = None  # 更新时间
+
+    @validator('tags', pre=True, always=True)
+    def extract_tag_names(cls, v):
+        """
+        从 Tag 对象列表中提取标签名称
+        如果 v 是 Tag 对象列表，返回 [tag.name]
+        如果 v 是字符串列表，直接返回
+        """
+        if not v:
+            return []
+        
+        # 处理 ORM 对象列表
+        if isinstance(v, list):
+            # 检查列表中的第一个元素，如果是 Tag 对象（具有 name 属性），则提取 name
+            # 我们通过检查属性是否存在来判断
+            return [
+                item.name if hasattr(item, 'name') else item 
+                for item in v
+            ]
+            
+        return v
 
     class Config:
         """

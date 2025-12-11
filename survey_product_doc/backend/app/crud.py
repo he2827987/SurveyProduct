@@ -314,7 +314,8 @@ def create_survey_question(db: Session, question: QuestionCreate, survey_id: int
     from backend.app.models.survey_question import SurveyQuestion
     
     # 创建全局题目
-    question_data = question.dict(exclude_unset=True, exclude={"options"})
+    question_data = question.dict(exclude_unset=True, exclude={"options", "tags"})
+    tags_data = question.tags
     
     # 确保设置owner_id
     if "owner_id" not in question_data:
@@ -335,12 +336,37 @@ def create_survey_question(db: Session, question: QuestionCreate, survey_id: int
         **question_data,
         survey_id=None  # 全局题目，不直接关联到调研
     )
+    
+    # 处理 options，序列化为 JSON 字符串
     if question.options is not None:
-        db_question.options = cast(str, json.dumps(question.options))
+        options_data = question.options
+        # 如果是 Pydantic 对象列表，先转为 dict
+        if isinstance(options_data, list):
+            options_data = [
+                opt.dict() if hasattr(opt, 'dict') else opt 
+                for opt in options_data
+            ]
+        db_question.options = cast(str, json.dumps(options_data, ensure_ascii=False))
 
     db.add(db_question)
     db.commit()
     db.refresh(db_question)
+    
+    # 处理标签
+    if tags_data:
+        from backend.app.models.tag import Tag
+        for tag_name in tags_data:
+            # 查找或创建标签
+            tag = db.query(Tag).filter(Tag.name == tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db.add(tag)
+                db.commit()
+                db.refresh(tag)
+            
+            # 添加关联
+            db_question.tags.append(tag)
+        db.commit()
     
     # 通过中间表关联到调研
     survey_question = SurveyQuestion(
@@ -368,10 +394,40 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
     db_question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if db_question:
         update_data = question_update.dict(exclude_unset=True)
+        
+        # 处理 tags
+        if "tags" in update_data:
+            tags_data = update_data["tags"]
+            if tags_data is not None:
+                # 清除旧标签关联
+                db_question.tags = []
+                
+                from backend.app.models.tag import Tag
+                for tag_name in tags_data:
+                    # 查找或创建标签
+                    tag = db.query(Tag).filter(Tag.name == tag_name).first()
+                    if not tag:
+                        tag = Tag(name=tag_name)
+                        db.add(tag)
+                        db.commit()
+                        db.refresh(tag)
+                    
+                    # 添加关联
+                    db_question.tags.append(tag)
+            
+            del update_data["tags"]
+
         # 特殊处理options字段
         if "options" in update_data:
             if update_data["options"] is not None:
-                db_question.options = cast(str, json.dumps(update_data["options"]))
+                options_data = update_data["options"]
+                # 如果是 Pydantic 对象列表，先转为 dict
+                if isinstance(options_data, list):
+                    options_data = [
+                        opt.dict() if hasattr(opt, 'dict') else opt 
+                        for opt in options_data
+                    ]
+                db_question.options = cast(str, json.dumps(options_data, ensure_ascii=False))
             else:
                 db_question.options = None # 如果更新为None，则清空
             del update_data["options"] # 从update_data中移除，避免重复处理
@@ -425,15 +481,43 @@ def create_global_question(db: Session, question: schemas.QuestionCreate, owner_
     """
     # 将Pydantic模型转换为字典，排除unset的字段
     question_data = question.dict()
+    tags_data = question_data.pop('tags', []) if 'tags' in question_data else []
+
     question_data['owner_id'] = owner_id
+    
     # 序列化options列表为JSON字符串
     if 'options' in question_data and question_data['options'] is not None:
-        question_data['options'] = json.dumps(question_data['options'], ensure_ascii=False)
+        options_data = question_data['options']
+        # 如果是 Pydantic 对象列表，先转为 dict (question.dict() 应该已经处理了，但为了保险起见)
+        if isinstance(options_data, list):
+            options_data = [
+                opt if isinstance(opt, (dict, str)) else opt.dict()
+                for opt in options_data
+            ]
+        question_data['options'] = json.dumps(options_data, ensure_ascii=False)
+        
     db_question = models.Question(**question_data)
     # 如果QuestionCreate中没有survey_id，它将是None
     db.add(db_question)
     db.commit()
     db.refresh(db_question)
+    
+    # 处理标签
+    if tags_data:
+        from backend.app.models.tag import Tag
+        for tag_name in tags_data:
+            # 查找或创建标签
+            tag = db.query(Tag).filter(Tag.name == tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db.add(tag)
+                db.commit()
+                db.refresh(tag)
+            
+            # 添加关联
+            db_question.tags.append(tag)
+        db.commit()
+
     # 在返回前，强制将options转换为列表
     if db_question.options and isinstance(db_question.options, str):
         try:
@@ -472,7 +556,7 @@ def get_global_questions(db: Session, skip: int = 0, limit: int = 100, type_filt
     # 添加标签过滤
     if tag_filter:
         from backend.app.models.tag import Tag
-        base_query = base_query.join("question_tags").join(Tag).filter(Tag.name.in_(tag_filter))
+        base_query = base_query.join(models.Question.tags).filter(Tag.name.in_(tag_filter))
     
     # 添加排序
     if sort_by:
@@ -507,7 +591,7 @@ def get_global_questions(db: Session, skip: int = 0, limit: int = 100, type_filt
     # 添加标签过滤
     if tag_filter:
         from backend.app.models.tag import Tag
-        query = query.join("question_tags").join(Tag).filter(Tag.name.in_(tag_filter))
+        query = query.join(models.Question.tags).filter(Tag.name.in_(tag_filter))
     
     # 添加排序
     if sort_by:
@@ -572,9 +656,18 @@ def create_organization_question(db: Session, question: schemas.QuestionCreate, 
     question_data = question.dict()
     question_data['owner_id'] = owner_id
     question_data['organization_id'] = organization_id
+    
     # 序列化options列表为JSON字符串
     if 'options' in question_data and question_data['options'] is not None:
-        question_data['options'] = json.dumps(question_data['options'], ensure_ascii=False)
+        options_data = question_data['options']
+        # 确保数据可序列化
+        if isinstance(options_data, list):
+            options_data = [
+                opt if isinstance(opt, (dict, str)) else opt.dict()
+                for opt in options_data
+            ]
+        question_data['options'] = json.dumps(options_data, ensure_ascii=False)
+        
     db_question = models.Question(**question_data)
     # 如果QuestionCreate中没有survey_id，它将是None
     db.add(db_question)
@@ -688,6 +781,8 @@ def get_organization_questions(db: Session, org_id: int, skip: int = 0, limit: i
 
 # ===== Survey Answer CRUD 操作 =====
 
+from backend.app.services.grading_service import calculate_survey_total_score
+
 def create_survey_answer(
     db: Session,
     answer: SurveyAnswerCreate,
@@ -697,23 +792,25 @@ def create_survey_answer(
 ) -> models.SurveyAnswer:
     """
     创建调研答案
-    
-    Args:
-        db: 数据库会话
-        answer: 答案创建数据
-        survey_id: 调研ID
-        user_id: 用户ID（可选）
-        participant_id: 参与者ID（可选）
-        
-    Returns:
-        models.SurveyAnswer: 创建的答案对象
     """
+    # 计算总分
+    total_score = calculate_survey_total_score(db, survey_id, answer.answers)
+
+    # 提取部门和职位（如果 answer 中有这些字段）
+    # 注意：answer.answers 仅包含题目答案，department/position 在 answer 对象本身
+    # 如果 SurveyAnswerCreate 没有定义这些字段，需要修改 schema 或者从 extra 字段获取
+    department = getattr(answer, 'department', None)
+    position = getattr(answer, 'position', None)
+
     # 将answers字典转换为JSON字符串存储
     db_answer = models.SurveyAnswer(
         survey_id=survey_id,
         user_id=user_id,
         participant_id=participant_id,
-        answers=json.dumps(answer.answers)
+        answers=json.dumps(answer.answers),
+        total_score=total_score,
+        department=department,
+        position=position
     )
     db.add(db_answer)
     db.commit()

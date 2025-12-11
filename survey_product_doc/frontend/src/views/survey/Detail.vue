@@ -3,7 +3,7 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <el-button @click="goBack" icon="ArrowLeft" text>返回</el-button>
+        <el-button type="primary" @click="goBack">返回</el-button>
         <h1 class="page-title">调研详情</h1>
       </div>
       <div class="header-actions">
@@ -83,12 +83,12 @@
             </div>
             <div class="question-text">{{ question.text }}</div>
             <div v-if="question.options && question.options.length > 0" class="question-options">
-              <div 
-                v-for="option in question.options" 
-                :key="option.id" 
+              <div
+                v-for="(option, optionIndex) in question.options"
+                :key="optionIndex"
                 class="option-item"
               >
-                {{ option.text }}
+                {{ option }}
               </div>
             </div>
           </div>
@@ -207,9 +207,9 @@ const fetchSurveyDetail = async (surveyId) => {
   }
 }
 
-// 返回上一页
+// 返回调研管理页
 const goBack = () => {
-  router.back()
+  router.push('/survey')
 }
 
 // 编辑调研

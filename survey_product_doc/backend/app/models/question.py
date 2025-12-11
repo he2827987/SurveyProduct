@@ -63,9 +63,13 @@ class Question(Base):
     tags = relationship("Tag", secondary="question_tags", back_populates="questions")
 
     # ===== 问题属性字段 =====
-    # 选项字段：存储JSON格式的选项列表，如'["选项A", "选项B"]'
+    # 选项字段：存储JSON格式的选项列表，如'[{"text": "选项A", "score": 5}, {"text": "选项B", "score": 3}]'
     # 暂时使用Text字段存储JSON字符串，如果选项复杂可考虑单独的表
     options: Optional[str] = cast(Optional[str], Column(Text, nullable=True))
+    
+    # 分值范围设置
+    min_score = Column(Integer, default=0, nullable=True)  # 选项分值最小值
+    max_score = Column(Integer, default=10, nullable=True)  # 选项分值最大值
     
     is_required = Column(Boolean, default=False)  # 是否必填
     order = Column(Integer, default=0)  # 问题在问卷中的排序

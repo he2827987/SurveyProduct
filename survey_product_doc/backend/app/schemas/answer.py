@@ -20,6 +20,9 @@ class SurveyAnswerInDBBase(BaseModel): # <-- 类名改为 SurveyAnswerInDBBase
     user_id: Optional[int] = None
     submitted_at: datetime
     answers: Dict[str, Any]
+    total_score: Optional[float] = Field(0.0, description="Total score of the answer")
+    department: Optional[str] = None
+    position: Optional[str] = None
 
     class Config:
         from_attributes = True

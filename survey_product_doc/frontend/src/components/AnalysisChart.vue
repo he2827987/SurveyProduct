@@ -146,7 +146,12 @@ const chartOption = computed(() => {
         if (props.type === 'pie') {
           return `${params.name}<br/>${params.seriesName}: ${params.value} (${params.percent}%)`
         } else {
-          return `${params[0].name}<br/>${params.map(item => `${item.seriesName}: ${item.value}`).join('<br/>')}`
+          const firstLine = params[0].name
+          const lines = params.map(item => {
+            const label = item.seriesName === '问卷总分' ? '平均分' : item.seriesName
+            return `${label}: ${item.value}`
+          })
+          return `${firstLine}<br/>${lines.join('<br/>')}`
         }
       }
     },

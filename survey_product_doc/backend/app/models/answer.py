@@ -19,6 +19,14 @@ class SurveyAnswer(Base):
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
     # 存储回答的具体内容，通常是 JSON 格式
     answers = Column(Text, nullable=False) # 存储 JSON 字符串
+    
+    # 存储回答的总分
+    total_score = Column(Integer, default=0)
+    
+    # 存储受访者部门（直接存储字符串）
+    department = Column(Text, nullable=True)
+    # 存储受访者职位/等级（直接存储字符串）
+    position = Column(Text, nullable=True)
 
     # 关系
     survey = relationship("Survey", back_populates="answers")

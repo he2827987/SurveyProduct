@@ -59,23 +59,34 @@ export function getSurveyOverview(organizationId) {
 }
 
 /**
- * 获取特定调研的详细分析
- * @param {number} organizationId - 组织ID
+ * 获取特定调研的详细分析（按维度统计）
  * @param {number} surveyId - 调研ID
+ * @param {string} dimension - 统计维度，默认 department，可选 position
  * @returns {Promise<Object>} 调研详细分析数据
  */
-export function getSurveyAnalytics(organizationId, surveyId) {
-  return request.get(`/organizations/${organizationId}/surveys/${surveyId}/analytics`)
+export function getSurveyAnalytics(surveyId, dimension = 'department') {
+  return request.get(`/analysis/survey/${surveyId}/stats`, { params: { dimension } })
 }
 
 /**
  * 获取调研AI分析总结
- * @param {number} organizationId - 组织ID
  * @param {number} surveyId - 调研ID
  * @returns {Promise<Object>} AI分析总结
  */
-export function getSurveyAISummary(organizationId, surveyId) {
-  return request.get(`/organizations/${organizationId}/surveys/${surveyId}/analytics/ai-summary`)
+export function getSurveyAISummary(surveyId) {
+  return request.get(`/analysis/survey/${surveyId}/ai-summary`)
+}
+
+/**
+ * 按题目汇总总分/平均分，支持部门或职位过滤
+ * @param {number} surveyId - 调研ID
+ * @param {Object} params - 过滤参数
+ * @param {string} [params.department] - 部门名称
+ * @param {string} [params.position] - 职务
+ * @returns {Promise<Array>} 题目得分汇总
+ */
+export function getQuestionScores(surveyId, params = {}) {
+  return request.get(`/analysis/survey/${surveyId}/questions/scores`, { params })
 }
 
 // ===== 趋势分析API =====
@@ -280,4 +291,12 @@ export function getPredictionAnalysis(organizationId, surveyId, params = {}) {
  */
 export function generateEnterpriseComparisonAI(organizationId, surveyId, comparisonData) {
   return llmRequest.post(`/organizations/${organizationId}/surveys/${surveyId}/analytics/enterprise-comparison-ai`, comparisonData)
+}
+
+export function getLineScores(surveyId, params = {}) {
+  return request.get(`/analysis/survey/${surveyId}/line`, { params })
+}
+
+export function getPieOptionDistribution(surveyId, params = {}) {
+  return request.get(`/analysis/survey/${surveyId}/pie`, { params })
 }

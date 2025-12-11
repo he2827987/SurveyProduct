@@ -138,18 +138,12 @@ async def delete_tag(
         if not tag:
             raise HTTPException(status_code=404, detail="标签不存在")
         
-        # 检查是否有题目使用此标签
-        question_count = db.query(func.count(question_tags.c.question_id)).filter(
-            question_tags.c.tag_id == tag.id
-        ).scalar()
-        
-        if question_count > 0:
-            raise HTTPException(status_code=400, detail=f"标签正在被 {question_count} 个题目使用，无法删除")
-        
+        # 删除关联关系（question_tags 中的记录），实现“移除所有题目上的该标签”
+        db.execute(question_tags.delete().where(question_tags.c.tag_id == tag.id))
         db.delete(tag)
         db.commit()
         
-        return {"message": "标签删除成功"}
+        return {"message": "标签删除成功，并已从相关题目中移除"}
     except HTTPException:
         raise
     except Exception as e:

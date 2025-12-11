@@ -93,19 +93,18 @@
                   数据分析
                 </el-button>
                 
-                <!-- 编辑调研：只有创建者可以编辑 -->
-                <el-button 
-                  v-if="scope.row.isCreator" 
-                  type="info" 
-                  link 
+                <!-- 编辑调研：点击时验证权限 -->
+                <el-button
+                  type="info"
+                  link
                   @click="editSurvey(scope.row)"
                 >
                   编辑
                 </el-button>
                 
-                <!-- 删除调研：仅对未完成的调研显示，且只有创建者可以删除 -->
+                <!-- 删除调研：仅对未完成的调研显示，点击时验证权限 -->
                 <el-popconfirm
-                  v-if="scope.row.status !== 'completed' && scope.row.isCreator"
+                  v-if="scope.row.status !== 'completed'"
                   title="确定要删除此调研吗？"
                   @confirm="deleteSurvey(scope.row)"
                   confirm-button-text="确定"
@@ -138,8 +137,9 @@
     <!-- 创建调研对话框：用于创建新的调研项目 -->
     <el-dialog
       v-model="createDialog.visible"
-      title="创建调研"
+      :title="createDialog.title"
       width="650px"
+      @close="handleDialogClose"
     >
       <el-form
         ref="createFormRef"
@@ -237,7 +237,7 @@
         <div class="dialog-footer">
           <el-button @click="createDialog.visible = false">取消</el-button>
           <el-button type="primary" @click="createSurvey" :disabled="selectedQuestions.length === 0">
-            创建调研
+            {{ createDialog.isEdit ? '完成编辑' : '创建调研' }}
           </el-button>
         </div>
       </template>
@@ -265,13 +265,14 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import * as surveyApi from '@/api/survey'
 import * as questionApi from '@/api/question'
 import QRCodeGenerator from '@/components/QRCodeGenerator.vue'
 
 // ===== 路由和基础状态 =====
 const router = useRouter()
+const route = useRoute()
 
 // ===== 列表相关状态 =====
 const loading = ref(false) // 加载状态
@@ -288,7 +289,10 @@ const surveyList = ref([])
 
 // ===== 创建调研对话框相关状态 =====
 const createDialog = ref({
-  visible: false
+  visible: false,
+  title: '创建调研',
+  isEdit: false,
+  editId: null
 })
 
 // 创建表单
@@ -409,9 +413,22 @@ const qrDialog = ref({
 /**
  * 页面加载时初始化数据
  */
+// 监听路由查询参数变化
+watch(() => route.query.edit, (newEditId) => {
+  if (newEditId) {
+    openEditSurveyDialog(newEditId)
+  }
+})
+
 onMounted(() => {
   fetchSurveys() // 获取调研列表
   fetchGlobalQuestions() // 获取题库题目
+
+  // 检查是否处于编辑模式
+  const editId = route.query.edit
+  if (editId) {
+    openEditSurveyDialog(editId)
+  }
 })
 
 /**
@@ -679,13 +696,14 @@ const viewAnalysis = (survey) => {
  */
 const editSurvey = (survey) => {
   // 检查权限
+  /*
   if (!survey.isCreator) {
     ElMessage.error('只有创建者可以编辑调研')
     return
   }
-  
-  // 跳转到编辑页面
-  router.push(`/surveys/${survey.id}/edit`)
+  */
+  // 跳转到编辑模式（复用创建对话框）
+  router.push(`/survey?edit=${survey.id}`)
 }
 
 /**
@@ -694,6 +712,13 @@ const editSurvey = (survey) => {
  */
 const deleteSurvey = async (surveyToDelete) => {
   try {
+    /*
+    // 检查权限
+    if (!surveyToDelete.isCreator) {
+      ElMessage.error('只有创建者可以删除调研')
+      return
+    }
+    */
     // 调用API删除调研
     await surveyApi.deleteSurvey(surveyToDelete.id)
     ElMessage.success(`调研"${surveyToDelete.title}"已删除`)
@@ -731,6 +756,9 @@ const deleteSurvey = async (surveyToDelete) => {
  */
 const openCreateSurveyDialog = () => {
   createDialog.value.visible = true
+  createDialog.value.title = '创建调研'
+  createDialog.value.isEdit = false
+  createDialog.value.editId = null
   // 重置表单数据
   createForm.value = {
     title: '',
@@ -739,6 +767,48 @@ const openCreateSurveyDialog = () => {
   // 重置选择状态
   selectedQuestions.value = []
   selectAll.value = false
+}
+
+/**
+ * 打开编辑调研对话框
+ * 加载要编辑的调研数据
+ * @param {string|number} surveyId - 要编辑的调研ID
+ */
+const openEditSurveyDialog = async (surveyId) => {
+  try {
+    loading.value = true
+
+    // 获取调研基本信息
+    const surveyData = await surveyApi.getSurveyById(surveyId)
+    console.log('编辑调研数据:', surveyData)
+
+    // 获取调研的题目列表
+    const questionsData = await surveyApi.getSurveyQuestions(surveyId)
+    console.log('调研题目数据:', questionsData)
+
+    // 填充表单数据
+    createForm.value = {
+      title: surveyData.title || '',
+      description: surveyData.description || ''
+    }
+
+    // 设置已选择的题目
+    selectedQuestions.value = questionsData ? questionsData.map(q => q.id) : []
+    selectAll.value = false
+
+    // 设置对话框为编辑模式
+    createDialog.value.title = '编辑调研'
+    createDialog.value.isEdit = true
+    createDialog.value.editId = surveyId
+    createDialog.value.visible = true
+
+    ElMessage.success('已加载调研数据，可进行编辑')
+  } catch (error) {
+    console.error('加载编辑数据失败:', error)
+    ElMessage.error('加载调研数据失败，无法编辑')
+  } finally {
+    loading.value = false
+  }
 }
 
 /**
@@ -766,44 +836,68 @@ const handleSelectAllChange = (val) => {
 }
 
 /**
- * 创建调研
- * 验证表单数据，调用API创建调研，并更新UI
+ * 处理对话框关闭
+ * 清理URL参数
+ */
+const handleDialogClose = () => {
+  // 如果是编辑模式，清理URL中的edit参数
+  if (createDialog.value.isEdit) {
+    router.replace('/survey')
+  }
+}
+
+/**
+ * 创建或更新调研
+ * 验证表单数据，调用API创建或更新调研，并更新UI
  */
 const createSurvey = async () => {
   // 验证表单数据
   const valid = await createFormRef.value.validate()
   if (valid && selectedQuestions.value.length > 0) {
     try {
-      console.log('创建调研...')
-      
-      // 构造创建调研的数据
+      const isEdit = createDialog.value.isEdit
+      console.log(isEdit ? '更新调研...' : '创建调研...')
+
+      // 构造调研数据
       const surveyData = {
         title: createForm.value.title,
         description: createForm.value.description,
         question_ids: selectedQuestions.value
       }
-      
-      // 调用API创建调研
-      const response = await surveyApi.createSurvey(surveyData)
-      
-      console.log('创建调研成功:', response)
-      ElMessage.success('调研创建成功')
-      
+
+      let response
+      if (isEdit) {
+        // 编辑模式：调用更新API
+        response = await surveyApi.updateSurvey(createDialog.value.editId, surveyData)
+        console.log('更新调研成功:', response)
+        ElMessage.success('调研更新成功')
+      } else {
+        // 创建模式：调用创建API
+        response = await surveyApi.createSurvey(surveyData)
+        console.log('创建调研成功:', response)
+        ElMessage.success('调研创建成功')
+      }
+
       // 重新获取调研列表
       await fetchSurveys()
-      
+
       // 重置表单和选择
       createForm.value = {
         title: '',
         description: ''
       }
       selectedQuestions.value = []
-      
+
       // 关闭对话框
       createDialog.value.visible = false
+
+      // 清除URL中的edit参数
+      if (isEdit) {
+        router.replace('/survey')
+      }
     } catch (error) {
-      console.error('创建调研失败:', error)
-      ElMessage.error('创建调研失败: ' + (error.message || '未知错误'))
+      console.error(isEdit ? '更新调研失败:' : '创建调研失败:', error)
+      ElMessage.error((isEdit ? '更新' : '创建') + '调研失败: ' + (error.message || '未知错误'))
     }
   } else if (selectedQuestions.value.length === 0) {
     ElMessage.warning('请至少选择一个题目')

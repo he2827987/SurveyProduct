@@ -25,6 +25,7 @@ class SurveyUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255, description="问卷标题")
     description: Optional[str] = Field(None, max_length=1000, description="问卷描述")
     status: Optional[str] = Field(None, description="问卷状态")
+    question_ids: Optional[list[int]] = Field(None, description="关联的题目ID列表")
 
     class Config:
         json_schema_extra = {

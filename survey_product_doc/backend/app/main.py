@@ -18,7 +18,7 @@ from backend.app.api import org_api
 from backend.app.api import llm_api
 from backend.app.api import department_api
 from backend.app.api import participant_api
-from backend.app.api import analytics_api, category_api, tag_api
+from backend.app.api import analytics_api, category_api, tag_api, analysis_api
 
 # 创建所有数据库表
 Base.metadata.create_all(bind=engine)
@@ -57,6 +57,7 @@ app.include_router(participant_api.router, tags=["participant"], prefix="/api/v1
 app.include_router(analytics_api.router, tags=["analytics"], prefix="/api/v1")
 app.include_router(category_api.router, tags=["category"], prefix="/api/v1")
 app.include_router(tag_api.router, tags=["tag"], prefix="/api/v1")
+app.include_router(analysis_api.router, tags=["analysis"], prefix="/api/v1")
 
 @app.get("/")
 def read_root():

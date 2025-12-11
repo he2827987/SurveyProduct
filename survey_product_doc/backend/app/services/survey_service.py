@@ -8,7 +8,10 @@ from backend.app.models.user import User as UserModel # 导入 User 模型，用
 def create_survey(db: Session, survey: SurveyCreate, user_id: int):
     """
     创建一份新的问卷。
+    如果提供了question_ids，则创建调研与题目的关联关系。
     """
+    from backend.app.models.survey_question import SurveyQuestion
+
     db_survey = SurveyModel(
         title=survey.title,  # 使用survey.title，因为schema中定义的是title字段
         description=survey.description,
@@ -17,6 +20,18 @@ def create_survey(db: Session, survey: SurveyCreate, user_id: int):
     db.add(db_survey)
     db.commit()
     db.refresh(db_survey)
+
+    # 如果提供了question_ids，则创建调研与题目的关联关系
+    if survey.question_ids:
+        for order, question_id in enumerate(survey.question_ids, 1):
+            survey_question = SurveyQuestion(
+                survey_id=db_survey.id,
+                question_id=question_id,
+                order=order
+            )
+            db.add(survey_question)
+        db.commit()
+
     return db_survey
 
 def get_survey(db: Session, survey_id: int):
@@ -65,12 +80,35 @@ def get_global_surveys(db: Session, skip: int = 0, limit: int = 100, search: str
 def update_survey(db: Session, survey_id: int, survey_update: SurveyUpdate):
     """
     更新问卷信息。
+    如果提供了question_ids，则更新调研与题目的关联关系。
     """
+    from backend.app.models.survey_question import SurveyQuestion
+
     db_survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
     if db_survey:
         update_data = survey_update.model_dump(exclude_unset=True) # Pydantic v2: model_dump
+
+        # 特殊处理question_ids：删除现有关联，创建新的关联
+        if 'question_ids' in update_data:
+            question_ids = update_data.pop('question_ids')  # 从更新数据中移除，避免直接设置到SurveyModel
+
+            # 删除现有的survey-question关联
+            db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey_id).delete()
+
+            # 创建新的关联
+            if question_ids:
+                for order, question_id in enumerate(question_ids, 1):
+                    survey_question = SurveyQuestion(
+                        survey_id=survey_id,
+                        question_id=question_id,
+                        order=order
+                    )
+                    db.add(survey_question)
+
+        # 更新其他字段
         for key, value in update_data.items():
             setattr(db_survey, key, value)
+
         db.add(db_survey)
         db.commit()
         db.refresh(db_survey)
@@ -131,7 +169,9 @@ def get_survey_questions(db: Session, survey_id: int):
                 "type": question.type,
                 "options": options,
                 "is_required": question.is_required,
-                "order": sq.order
+                "order": sq.order,
+                "min_score": question.min_score,
+                "max_score": question.max_score
             })
     
     return questions

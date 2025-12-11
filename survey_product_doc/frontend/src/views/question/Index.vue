@@ -15,6 +15,10 @@
             <el-icon><Plus /></el-icon>添加分类
           </el-button>
         </div>
+
+        <div class="current-category" v-if="selectedCategoryLabel">
+          当前分类：{{ selectedCategoryLabel }}
+        </div>
         
         <el-input
           v-model="categoryFilter"
@@ -64,7 +68,7 @@
             <el-tag
               v-for="tag in filterTags"
               :key="tag.name"
-              :type="tag.active ? '' : 'info'"
+              :type="tag.active ? 'primary' : 'info'"
               effect="light"
               class="filter-tag"
               @click="toggleTagFilter(tag)"
@@ -72,6 +76,32 @@
             >
               {{ tag.name }} ({{ tag.count }})
             </el-tag>
+          </div>
+          <div class="tag-create">
+            <el-input
+              v-model="newTagName"
+              placeholder="输入新标签，回车或点击添加"
+              size="small"
+              @keyup.enter="createTag"
+            />
+            <el-button
+              type="primary"
+              size="small"
+              :loading="creatingTag"
+              @click="createTag"
+              style="margin-left: 8px;"
+            >
+              添加标签
+            </el-button>
+            <el-button
+              v-if="filterTags.some(t => t.active)"
+              type="danger"
+              size="small"
+              @click="deleteActiveTag"
+              style="margin-left: 8px;"
+            >
+              删除选中标签
+            </el-button>
           </div>
         </div>
       </div>
@@ -280,6 +310,10 @@
             style="width: 100%"
           />
         </el-form-item>
+
+        <el-form-item label="是否必填" prop="is_required">
+          <el-switch v-model="questionForm.is_required" />
+        </el-form-item>
         
         <el-form-item label="标签">
           <el-select
@@ -303,25 +337,61 @@
         <template v-if="questionForm.type === 'single' || questionForm.type === 'multiple'">
           <el-divider content-position="left">选项设置</el-divider>
           
+          <el-form-item label="启用分值">
+            <el-switch v-model="questionForm.enable_score" />
+          </el-form-item>
+          
+          <template v-if="questionForm.enable_score">
+            <el-form-item label="分值范围">
+              <el-col :span="11">
+                <el-input-number v-model="questionForm.min_score" placeholder="最小值" style="width: 100%" />
+              </el-col>
+              <el-col :span="2" class="text-center">
+                <span class="text-gray-500">-</span>
+              </el-col>
+              <el-col :span="11">
+                <el-input-number v-model="questionForm.max_score" placeholder="最大值" style="width: 100%" />
+              </el-col>
+            </el-form-item>
+          </template>
+
           <div class="options-list">
             <div 
               v-for="(option, index) in questionForm.options" 
               :key="index"
               class="option-item"
             >
-              <el-input
-                v-model="questionForm.options[index]"
-                placeholder="请输入选项内容"
-              >
-                <template #prepend>
-                  <div class="option-label">{{ String.fromCharCode(65 + index) }}</div>
-                </template>
-                <template #append>
-                  <el-button @click="removeOption(index)" :disabled="questionForm.options.length <= 2">
+              <el-row :gutter="10" style="width: 100%" align="middle">
+                <el-col :span="questionForm.enable_score ? 14 : 20">
+                  <el-input
+                    v-model="questionForm.options[index].text"
+                    placeholder="请输入选项内容"
+                  >
+                    <template #prepend>
+                      <div class="option-label">{{ String.fromCharCode(65 + index) }}</div>
+                    </template>
+                  </el-input>
+                </el-col>
+                <el-col :span="6" v-if="questionForm.enable_score">
+                   <el-input-number 
+                      v-model="questionForm.options[index].score" 
+                      :min="questionForm.min_score" 
+                      :max="questionForm.max_score"
+                      placeholder="分值"
+                      style="width: 100%"
+                   />
+                </el-col>
+                <el-col :span="2" class="flex items-center justify-center">
+                    <el-tooltip content="设为正确答案" placement="top">
+                        <el-checkbox v-model="questionForm.options[index].is_correct" />
+                    </el-tooltip>
+                </el-col>
+                <el-col :span="2">
+                  <el-button @click="removeOption(index)" :disabled="questionForm.options.length <= 2" style="width: 100%">
                     <el-icon><Delete /></el-icon>
                   </el-button>
-                </template>
-              </el-input>
+                </el-col>
+              </el-row>
             </div>
             
             <div class="add-option">
@@ -513,6 +583,9 @@
         <!-- 选项信息 -->
         <div class="detail-section" v-if="detailDialog.question.options && detailDialog.question.options.length > 0">
           <h3 class="section-title">选项信息</h3>
+          <div v-if="detailDialog.question.min_score !== undefined && detailDialog.question.max_score !== undefined" class="mb-2 text-gray-500">
+             分值范围: {{ detailDialog.question.min_score }} - {{ detailDialog.question.max_score }}
+          </div>
           <div class="options-list">
             <div
               v-for="(option, index) in detailDialog.question.options"
@@ -520,8 +593,11 @@
               class="option-item"
             >
               <span class="option-label">{{ String.fromCharCode(65 + index) }}.</span>
-              <span class="option-text">{{ option.text }}</span>
-              <el-tag v-if="option.is_correct" type="success" size="small">正确答案</el-tag>
+              <span class="option-text">{{ typeof option === 'string' ? option : option.text }}</span>
+              <el-tag v-if="typeof option !== 'string' && option.score !== undefined" type="warning" size="small" class="ml-2">
+                {{ option.score }}分
+              </el-tag>
+              <el-tag v-if="option.is_correct" type="success" size="small" class="ml-2">正确答案</el-tag>
             </div>
           </div>
         </div>
@@ -551,7 +627,13 @@
           <el-descriptions :column="3" border>
             <el-descriptions-item label="使用次数">{{ detailDialog.question.usage_count || 0 }}</el-descriptions-item>
             <el-descriptions-item label="回答次数">{{ detailDialog.question.answer_count || 0 }}</el-descriptions-item>
-            <el-descriptions-item label="正确率">{{ detailDialog.question.correct_rate || '0%' }}</el-descriptions-item>
+            <el-descriptions-item label="正确率">
+               {{ 
+                  (detailDialog.question.options && detailDialog.question.options.some(opt => opt.is_correct)) 
+                  ? (detailDialog.question.correct_rate || '0%') 
+                  : 'N/A' 
+               }}
+            </el-descriptions-item>
           </el-descriptions>
           <div class="statistics-note">
             <el-alert
@@ -607,11 +689,13 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Edit, Search, DocumentCopy, Download } from '@element-plus/icons-vue'
-import { createGlobalQuestion, getGlobalQuestions, updateQuestion, deleteQuestion, getQuestionCategoryTree, createQuestionCategory, updateQuestionCategory, deleteQuestionCategory, getQuestionTags } from '@/api/question'
+import { createGlobalQuestion, getGlobalQuestions, updateQuestion, deleteQuestion, getQuestionCategoryTree, createQuestionCategory, updateQuestionCategory, deleteQuestionCategory, getQuestionTags, createQuestionTag, deleteQuestionTag } from '@/api/question'
 
 // 分类树数据
 const categories = ref([])
 const categoriesLoading = ref(false)
+const selectedCategoryId = ref(null)
+const selectedCategoryLabel = ref('全部')
 
 // 展平的分类列表，用于下拉选择
 const flattenedCategories = computed(() => {
@@ -645,6 +729,10 @@ const filterTags = ref([
   { name: '公司文化', count: 6, active: false }
 ])
 
+// 新建标签
+const newTagName = ref('')
+const creatingTag = ref(false)
+
 // 题目列表数据
 const questionList = ref([])
 
@@ -656,6 +744,7 @@ const allTags = computed(() => {
 // 分类过滤
 const categoryFilter = ref('')
 const categoryTreeRef = ref(null)
+// selectedCategoryId 在文件上方已声明，这里移除重复声明
 
 // 题目搜索
 const searchQuery = ref('')
@@ -701,7 +790,10 @@ const questionForm = ref({
   type: 'single_choice',
   category_id: null,
   tags: [],
-  options: ['选项A', '选项B', '选项C'],
+  options: [{text: '选项A', score: 0, is_correct: false}, {text: '选项B', score: 0, is_correct: false}, {text: '选项C', score: 0, is_correct: false}],
+  enable_score: false,
+  min_score: 0,
+  max_score: 10,
   max_length: 500
 })
 
@@ -753,6 +845,10 @@ const fetchCategories = async () => {
   try {
     const response = await getQuestionCategoryTree()
     categories.value = response || []
+    // 如果已选分类，刷新路径展示
+    if (selectedCategoryId.value) {
+      selectedCategoryLabel.value = getCategoryPathLabel(selectedCategoryId.value)
+    }
   } catch (error) {
     console.error('获取分类树失败:', error)
     ElMessage.error('获取分类树失败: ' + (error.message || '未知错误'))
@@ -769,6 +865,7 @@ const fetchTags = async () => {
     if (response && Array.isArray(response)) {
       // 转换后端数据格式为前端格式
       filterTags.value = response.map(tag => ({
+        id: tag.id,
         name: tag.name,
         count: tag.question_count || 0,
         active: false
@@ -808,6 +905,10 @@ const fetchQuestions = async () => {
     // 添加排序参数
     if (sortBy.value) {
       params.sort_by = sortBy.value
+    }
+    // 添加分类筛选参数
+    if (selectedCategoryId.value) {
+      params.category_id = selectedCategoryId.value
     }
     // 添加标签筛选参数
     const activeTags = filterTags.value.filter(tag => tag.active).map(tag => tag.name)
@@ -857,9 +958,27 @@ const filterCategory = (value, data) => {
 
 // 点击分类
 const handleCategoryClick = (data) => {
-  // 根据分类筛选题目
-  ElMessage.success(`已选择分类: ${data.name}`)
-  // 实际项目中应调用接口重新加载题目列表
+  selectedCategoryId.value = data.id
+  selectedCategoryLabel.value = getCategoryPathLabel(data.id)
+  currentPage.value = 1
+  fetchQuestions()
+}
+
+// 递归查找分类路径（名称链）
+const getCategoryPathLabel = (targetId) => {
+  const dfs = (nodes, trail = []) => {
+    for (const n of nodes || []) {
+      const nextTrail = [...trail, n.name]
+      if (n.id === targetId) return nextTrail
+      if (n.children && n.children.length) {
+        const found = dfs(n.children, nextTrail)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  const path = dfs(categories.value, [])
+  return path ? path.join(' / ') : '全部'
 }
 
 // 切换标签筛选
@@ -867,6 +986,84 @@ const toggleTagFilter = (tag) => {
   tag.active = !tag.active
   currentPage.value = 1
   fetchQuestions()
+}
+
+// 删除选中标签（仅删除一个当前激活的标签）
+const deleteActiveTag = async () => {
+  const activeTags = filterTags.value.filter(t => t.active)
+  if (activeTags.length === 0) {
+    ElMessage.warning('请先选中要删除的标签')
+    return
+  }
+  if (activeTags.length > 1) {
+    ElMessage.warning('不能同时删除多个标签')
+    return
+  }
+  const activeTag = activeTags[0]
+  if (!activeTag.id) {
+    ElMessage.error('无法删除：缺少标签ID（可能是本地默认标签）')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确定删除标签「${activeTag.name}」？此操作将从所有题目中移除该标签。`,
+      '提示',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+    await deleteQuestionTag(activeTag.id)
+    // 从列表移除
+    filterTags.value = filterTags.value.filter(t => t.id !== activeTag.id)
+    // 刷新题目和标签
+    await fetchQuestions()
+    await fetchTags()
+    ElMessage.success('标签已删除')
+  } catch (err) {
+    if (err !== 'cancel') {
+      console.error('删除标签失败:', err)
+      ElMessage.error('删除标签失败')
+    }
+  }
+}
+
+// 创建新标签
+const createTag = async () => {
+  const name = newTagName.value.trim()
+  if (!name) {
+    ElMessage.warning('请输入标签名称')
+    return
+  }
+
+  // 前端去重：若已存在同名标签则直接提示并激活
+  const existing = filterTags.value.find(t => t.name === name)
+  if (existing) {
+    existing.active = true
+    newTagName.value = ''
+    currentPage.value = 1
+    fetchQuestions()
+    return
+  }
+
+  try {
+    creatingTag.value = true
+    const resp = await createQuestionTag({ name })
+    // 确保返回对象包含 name
+    const created = resp && resp.name ? resp : { id: undefined, name, count: 0, active: false }
+    filterTags.value.push({
+      id: created.id,
+      name: created.name,
+      count: created.question_count || 0,
+      active: true
+    })
+    newTagName.value = ''
+    currentPage.value = 1
+    fetchQuestions()
+    ElMessage.success('标签创建成功')
+  } catch (error) {
+    console.error('创建标签失败:', error)
+    ElMessage.error('创建标签失败')
+  } finally {
+    creatingTag.value = false
+  }
 }
 
 // 搜索题目
@@ -1014,19 +1211,50 @@ const openQuestionDialog = (question = null) => {
     // 转换题目类型为前端格式
     questionData.type = mapQuestionTypeForUI(questionData.type)
     
-    // 处理选项数据
-    if (questionData.options && typeof questionData.options === 'string') {
-      try {
-        questionData.options = JSON.parse(questionData.options)
-      } catch (e) {
-        questionData.options = []
-      }
-    }
+// 处理选项数据
+if (questionData.options && typeof questionData.options === 'string') {
+  try {
+    const parsedOptions = JSON.parse(questionData.options)
+    // 统一转换为对象格式
+    questionData.options = parsedOptions.map(opt => {
+        if (typeof opt === 'string') return { text: opt, score: 0, is_correct: false }
+        if (opt.is_correct === undefined) opt.is_correct = false
+        return opt
+    })
+  } catch (e) {
+    questionData.options = []
+  }
+} else if (Array.isArray(questionData.options)) {
+    // 已经是数组，确保元素统一
+    questionData.options = questionData.options.map(opt => {
+        if (typeof opt === 'string') return { text: opt, score: 0, is_correct: false }
+        if (opt.is_correct === undefined) opt.is_correct = false
+        return opt
+    })
+}
     
     // 设置默认值
     if (!questionData.options) {
-      questionData.options = ['选项A', '选项B', '选项C']
+      questionData.options = [{text: '选项A', score: 0, is_correct: false}, {text: '选项B', score: 0, is_correct: false}, {text: '选项C', score: 0, is_correct: false}]
+    } else {
+        // 确保 options 是对象数组
+        questionData.options = questionData.options.map(opt => {
+            if (typeof opt === 'string') {
+                return { text: opt, score: 0, is_correct: false }
+            }
+            if (opt.is_correct === undefined) opt.is_correct = false // 确保有 is_correct 字段
+            return opt
+        })
     }
+    
+    // 初始化分值相关字段
+    if (questionData.min_score === undefined) questionData.min_score = 0
+    if (questionData.max_score === undefined) questionData.max_score = 10
+    
+    // 如果已有分值且不全为0，则默认开启分值
+    const hasScore = questionData.options.some(opt => opt.score !== 0 && opt.score !== undefined)
+    questionData.enable_score = hasScore
+
     if (!questionData.max_length) {
       questionData.max_length = 500
     }
@@ -1043,7 +1271,11 @@ const openQuestionDialog = (question = null) => {
       type: 'single',
       category_id: null,
       tags: [],
-      options: ['选项A', '选项B', '选项C'],
+      is_required: false,
+      options: [{text: '选项A', score: 0, is_correct: false}, {text: '选项B', score: 0, is_correct: false}, {text: '选项C', score: 0, is_correct: false}],
+      enable_score: false,
+      min_score: 0,
+      max_score: 10,
       max_length: 500,
       min_value: 0,
       max_value: 999999
@@ -1056,7 +1288,7 @@ const openQuestionDialog = (question = null) => {
 // 添加选项
 const addOption = () => {
   if (questionForm.value.options.length < 10) {
-    questionForm.value.options.push('')
+    questionForm.value.options.push({ text: '', score: 0, is_correct: false })
   }
 }
 
@@ -1097,6 +1329,7 @@ const saveQuestion = () => {
           ElMessage.success('题目更新成功')
           // 刷新题目列表以获取最新数据
           await fetchQuestions()
+          await fetchCategories() // 更新分类计数
         } else {
           // --- 修改：添加新题目 (调用全局题库 API) ---
           console.log("开始调用 createGlobalQuestion API...");
@@ -1108,6 +1341,7 @@ const saveQuestion = () => {
           ElMessage.success('题目添加成功')
           // 刷新题目列表以获取最新数据
           await fetchQuestions()
+          await fetchCategories() // 更新分类计数
           console.log("saveQuestion 函数执行完成（新增分支）。");
         }
         questionDialog.value.visible = false
@@ -1384,6 +1618,12 @@ const mapQuestionTypeForUI = (apiType) => {
 
 .active-tag {
   font-weight: bold;
+}
+
+.tag-create {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
 }
 
 .search-bar {

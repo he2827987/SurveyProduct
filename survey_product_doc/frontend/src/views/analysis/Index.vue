@@ -63,17 +63,17 @@
         <!-- 图表类型选择 -->
         <div class="chart-type-selector">
           <el-radio-group v-model="chartType" @change="handleChartTypeChange">
-            <el-radio-button label="pie">饼图</el-radio-button>
-            <el-radio-button label="bar">柱状图</el-radio-button>
-            <el-radio-button label="line">折线图</el-radio-button>
-            <el-radio-button label="radar" :disabled="!radarChartEnabled">雷达图</el-radio-button>
+            <el-radio-button value="pie">饼图</el-radio-button>
+            <el-radio-button value="bar">柱状图</el-radio-button>
+            <el-radio-button value="line">折线图</el-radio-button>
+            <el-radio-button value="radar" :disabled="!radarChartEnabled">雷达图</el-radio-button>
           </el-radio-group>
           <div v-if="!radarChartEnabled" class="radar-disabled-tip">
             <el-tag type="warning" size="small">雷达图功能正在优化中</el-tag>
           </div>
         </div>
         
-        <div class="chart-container">
+        <div class="chart-container" v-if="chartType !== 'bar' && chartType !== 'line' && chartType !== 'pie'">
           <AnalysisChart
             :type="chartType"
             :data="chartData"
@@ -82,6 +82,103 @@
             :description="chartDescription"
             @chart-click="handleChartClick"
           />
+        </div>
+
+        <!-- 饼图展示 -->
+        <div v-if="chartType === 'pie'" class="pie-chart-panel">
+          <div class="chart-hint">
+            <el-tag type="info" effect="light">选择题目与选项，展示该选项在不同{{ groupBy === 'position' ? '职位' : '部门' }}下的占比；含未作答扇区</el-tag>
+          </div>
+          <div class="question-selector">
+            <el-collapse v-model="questionCollapse">
+              <el-collapse-item title="统计对象" name="pie-scope">
+                <div class="mb-2">
+                  <span style="margin-right:8px;">题目：</span>
+                  <el-select v-model="pieSelectedQuestion" placeholder="请选择题目" style="width: 260px">
+                    <el-option v-for="(q, idx) in questionOptions" :key="q.id" :label="`Q${q.order || idx + 1}. ${q.title}`" :value="q.id" />
+                  </el-select>
+                </div>
+                <div class="mb-2">
+                  <span style="margin-right:8px;">选项：</span>
+                  <el-select v-model="pieSelectedOption" placeholder="请选择选项" style="width: 260px">
+                    <el-option v-for="opt in pieOptions" :key="opt" :label="opt" :value="opt" />
+                  </el-select>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+          <div class="chart-item mb-8 p-4 border rounded">
+            <AnalysisChart
+              type="pie"
+              :data="pieChartData"
+              :title="chartTitle"
+              :height="400"
+              @chart-click="handleChartClick"
+            />
+          </div>
+        </div>
+
+        <!-- 折线图展示 -->
+
+        <div v-if="chartType === 'line'" class="line-chart-panel">
+          <div class="chart-hint">
+            <el-tag type="info" effect="light">X轴：{{ groupBy === 'position' ? '职位' : '部门' }}；Y轴：平均分；可选择整张问卷或题目作为 series</el-tag>
+          </div>
+          <div class="question-selector">
+            <el-collapse v-model="questionCollapse">
+              <el-collapse-item title="统计对象" name="line-scope">
+                <div class="mb-2">
+                  <el-checkbox v-model="lineIncludeSurvey">整张问卷总分</el-checkbox>
+                </div>
+                <el-checkbox-group v-model="lineSelectedQuestions">
+                  <div class="question-checkbox" v-for="(q, idx) in questionOptions" :key="q.id">
+                    <el-checkbox :value="q.id">Q{{ q.order || idx + 1 }}. {{ q.title }}</el-checkbox>
+                  </div>
+                </el-checkbox-group>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+          <div class="chart-item mb-8 p-4 border rounded">
+            <AnalysisChart
+              type="line"
+              :is-multi-series="true"
+              :xAxisData="lineCategories"
+              :series="lineSeriesForChart"
+              :data="[]"
+              :title="chartTitle"
+              :height="400"
+              @chart-click="handleChartClick"
+            />
+          </div>
+        </div>
+
+        <!-- 新增：柱状图展示区域 -->
+        <div v-if="chartType === 'bar'" class="bar-charts-list">
+            <div class="chart-hint">
+              <el-tag type="info" effect="light">
+                X轴：题目选项（或“有答案/未作答”）；Y轴：选择次数；柱体按部门/职位堆叠。
+              </el-tag>
+            </div>
+            <div class="question-selector">
+              <el-collapse v-model="questionCollapse">
+                <el-collapse-item title="选择题目" name="questions">
+                  <el-checkbox-group v-model="selectedQuestionIds">
+                    <div class="question-checkbox" v-for="(q, idx) in questionOptions" :key="q.id">
+                      <el-checkbox :value="q.id">
+                        Q{{ q.order || idx + 1 }}. {{ q.title }}
+                      </el-checkbox>
+                    </div>
+                  </el-checkbox-group>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+            <div v-for="chart in filteredOptionCharts" :key="chart.id" class="chart-item mb-8 p-4 border rounded">
+                <BarChart 
+                    :title="chart.title" 
+                    :data="chart.data"
+                />
+            </div>
+            <el-empty v-if="filteredOptionCharts.length === 0" description="暂无选项分布数据" />
         </div>
       </div>
       
@@ -119,13 +216,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AnalysisChart from '@/components/AnalysisChart.vue'
+import BarChart from '@/components/charts/BarChart.vue'
 import * as analyticsApi from '@/api/analytics'
 import * as surveyApi from '@/api/survey'
 import * as llmApi from '@/api/llm'
+import axios from '@/api/request'
 
 const route = useRoute()
 const loading = ref(false)
@@ -211,30 +310,54 @@ onMounted(async () => {
   }
 })
 
+// 获取当前用户ID
+const getCurrentUserId = () => {
+  try {
+    const userInfo = localStorage.getItem('user_info')
+    if (userInfo) {
+      const user = JSON.parse(userInfo)
+      return user.id
+    }
+    return null
+  } catch (error) {
+    console.error('获取用户ID失败:', error)
+    return null
+  }
+}
+
 // 加载调研列表
 const loadSurveyList = async () => {
   try {
     loading.value = true
-    
-    // 检查认证状态
-    const token = localStorage.getItem('access_token')
-    if (!token) {
-      console.warn('没有找到认证token')
-      ElMessage.warning('请先设置认证Token')
-      return
-    }
-    
+
+    // 检查认证状态 - 暂时注释掉
+    // const token = localStorage.getItem('access_token')
+    // if (!token) {
+    //   console.warn('没有找到认证token')
+    //   ElMessage.warning('请先设置认证Token')
+    //   return
+    // }
+
     const response = await surveyApi.getSurveys()
-    
-    // 只显示属于组织2的调研
-    const filteredSurveys = response.filter(survey => survey.organization_id === 2)
-    
+
+    // 获取当前用户ID
+    const currentUserId = getCurrentUserId()
+
+    // 显示当前用户创建的调研，或者所有调研（如果没有用户信息）
+    let filteredSurveys
+    if (currentUserId) {
+      filteredSurveys = response.filter(survey => survey.created_by_user_id === currentUserId)
+    } else {
+      // 如果无法获取用户信息，显示所有调研
+      filteredSurveys = response
+    }
+
     surveyList.value = filteredSurveys.map(survey => ({
       id: survey.id,
       title: survey.title
     }))
-    
-    console.log('组织2的调研列表:', surveyList.value)
+
+    console.log('用户调研列表:', surveyList.value, '用户ID:', currentUserId)
   } catch (error) {
     console.error('加载调研列表失败:', error)
     if (error.response && error.response.status === 401) {
@@ -266,13 +389,20 @@ const handleChartTypeChange = (type) => {
   
   // 重新格式化当前数据以适应新的图表类型
   if (selectedSurvey.value) {
-    loadAnalysisData()
+    if (type === "line") {
+      loadLineData()
+    } else {
+      loadAnalysisData()
+    }
   }
 }
 
 // 处理调研变更
 const handleSurveyChange = () => {
   loadAnalysisData()
+  if (chartType.value === "line") {
+    loadLineData()
+  }
 }
 
 // 处理分组方式变更
@@ -285,21 +415,154 @@ const refreshData = () => {
   loadAnalysisData()
 }
 
+const optionCharts = ref([])
+const questionScores = ref([])
+const questionOptions = ref([]) // 题目列表（供多选）
+const lineIncludeSurvey = ref(true) // 折线图是否包含整张问卷总分
+const lineSelectedQuestions = ref([]) // 折线图选中的题目
+const lineChartData = ref({ categories: [], series: [] })
+const pieChartData = ref([])
+const pieSelectedQuestion = ref(null)
+const pieSelectedOption = ref(null)
+const pieOptions = ref([])
+const lineSeriesForChart = computed(() => (lineChartData.value.series || []).map(s => ({ name: s.name, value: s.data || [] })))
+const lineCategories = computed(() => lineChartData.value.categories || [])
+
+const selectedQuestionIds = ref([]) // 默认全选
+const questionCollapse = ref(['questions'])
+
+const filteredOptionCharts = computed(() => {
+  if (!selectedQuestionIds.value || selectedQuestionIds.value.length === 0) {
+    return []
+  }
+  return optionCharts.value.filter(item => {
+    const idNum = Number(item.id)
+    return selectedQuestionIds.value.includes(idNum)
+  })
+})
+
+watch(lineSelectedQuestions, () => {
+  loadLineData()
+})
+watch(lineIncludeSurvey, () => {
+  loadLineData()
+})
+watch(pieSelectedQuestion, () => {
+  if (!pieSelectedQuestion.value) return
+  const chart = optionCharts.value.find(c => Number(c.id) === Number(pieSelectedQuestion.value))
+  pieOptions.value = chart && chart.data ? chart.data.map(d => d.name) : []
+  if (pieOptions.value.length > 0) {
+    pieSelectedOption.value = pieOptions.value[0]
+  }
+  loadPieData()
+})
+watch(pieSelectedOption, () => {
+  loadPieData()
+})
+// 新增：加载选项分布图表数据
+const loadOptionCharts = async () => {
+  if (!selectedSurvey.value) return
+  
+  loading.value = true
+  try {
+    const response = await axios.get(`/analysis/survey/${selectedSurvey.value}/charts/options`)
+    optionCharts.value = response
+
+    // 构建题目多选列表，默认全选
+    questionOptions.value = response.map((item, index) => ({
+      id: Number(item.id ?? index),
+      title: item.title || `题目${index + 1}`,
+      order: item.order || index + 1
+    }))
+    selectedQuestionIds.value = questionOptions.value.map(q => q.id)
+  } catch (error) {
+    console.error('加载选项图表失败:', error)
+    // ElMessage.error('加载选项图表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
 // 加载分析数据
+
+const loadLineData = async () => {
+  if (!selectedSurvey.value) return
+  try {
+    const paramsSurvey = { scope: lineIncludeSurvey.value ? 'survey' : 'question', dimension: groupBy.value === 'position' ? 'position' : 'department' }
+    let mergedSeries = []
+    let categories = []
+
+    if (lineIncludeSurvey.value) {
+      const resp = await analyticsApi.getLineScores(selectedSurvey.value, paramsSurvey)
+      categories = resp.categories || []
+      mergedSeries = mergedSeries.concat(resp.series || [])
+    }
+
+    if (lineSelectedQuestions.value && lineSelectedQuestions.value.length > 0) {
+      const respQ = await analyticsApi.getLineScores(selectedSurvey.value, {
+        scope: lineIncludeSurvey.value ? 'both' : 'question',
+        dimension: paramsSurvey.dimension,
+        question_ids: lineSelectedQuestions.value.map(Number)
+      })
+      // 如果 categories 为空，用题目返回的；否则沿用已有
+      if (!categories.length) categories = respQ.categories || []
+      mergedSeries = mergedSeries.concat(respQ.series || [])
+    }
+
+    lineChartData.value = { categories, series: mergedSeries }
+  } catch (err) {
+    console.error('加载折线图数据失败:', err)
+  }
+}
+
+const loadPieData = async () => {
+  if (!selectedSurvey.value || !pieSelectedQuestion.value || !pieSelectedOption.value) return
+  try {
+    const resp = await analyticsApi.getPieOptionDistribution(selectedSurvey.value, {
+      question_id: pieSelectedQuestion.value,
+      option_text: pieSelectedOption.value,
+      dimension: groupBy.value === 'position' ? 'position' : 'department',
+      include_unanswered: true
+    })
+    pieChartData.value = resp.data || []
+  } catch (err) {
+    console.error('加载饼图数据失败:', err)
+  }
+}
+
 const loadAnalysisData = async () => {
   if (!selectedSurvey.value) return
   
   loading.value = true
   try {
-    // 获取调研分析数据
-    const organizationId = 2 // 使用组织2，因为我们的测试数据在组织2中
-    const response = await analyticsApi.getSurveyAnalytics(organizationId, selectedSurvey.value)
+    // 加载选项分布图表
+    await loadOptionCharts()
+    // 加载折线图数据
+    await loadLineData()
+    // 加载饼图数据
+    if (chartType.value === "pie") {
+      if (!pieSelectedQuestion.value && questionOptions.value.length > 0) {
+        pieSelectedQuestion.value = questionOptions.value[0].id
+      }
+      if ((!pieSelectedOption.value || !pieOptions.value.includes(pieSelectedOption.value)) && pieOptions.value.length > 0) {
+        pieSelectedOption.value = pieOptions.value[0]
+      }
+      await loadPieData()
+    }
+
+    // 获取调研维度分析数据
+    const response = await analyticsApi.getSurveyAnalytics(selectedSurvey.value, groupBy.value === 'position' ? 'position' : 'department')
     
     // 更新图表数据
     updateChartDataFromResponse(response)
     
     // 更新表格数据
     updateTableDataFromResponse(response)
+
+    // 获取按题目得分汇总（当前不展示，可用于后续雷达/折线等）
+    questionScores.value = await analyticsApi.getQuestionScores(selectedSurvey.value, {
+      // 可根据需要传 department / position
+    })
     
     ElMessage.success('数据加载成功')
   } catch (error) {
@@ -319,64 +582,15 @@ const updateChartDataFromResponse = (response) => {
   
   let rawData = []
   
-  // 根据分组方式生成不同的数据
-  switch (groupBy.value) {
-    case 'department':
-      if (response.participant_analysis && response.participant_analysis.by_department) {
-        rawData = Object.entries(response.participant_analysis.by_department).map(([name, value]) => ({
-          name,
-          value
-        }))
-      }
-      break
-    case 'position':
-      if (response.participant_analysis && response.participant_analysis.by_position) {
-        rawData = Object.entries(response.participant_analysis.by_position).map(([name, value]) => ({
-          name,
-          value
-        }))
-      }
-      break
-    case 'question':
-      // 按问题分析，显示每个问题的回答数量
-      rawData = response.question_analytics.map(qa => ({
-        name: qa.question_text.length > 20 ? qa.question_text.substring(0, 20) + '...' : qa.question_text,
-        value: qa.total_responses,
-        fullName: qa.question_text
-      }))
-      break
-    case 'tag':
-      // 基于问题关键词生成标签分析
-      const tagAnalysis = {}
-      response.question_analytics.forEach(qa => {
-        const text = qa.question_text.toLowerCase()
-        if (text.includes('满意') || text.includes('评价')) {
-          tagAnalysis['满意度'] = (tagAnalysis['满意度'] || 0) + qa.total_responses
-        }
-        if (text.includes('环境') || text.includes('工作')) {
-          tagAnalysis['工作环境'] = (tagAnalysis['工作环境'] || 0) + qa.total_responses
-        }
-        if (text.includes('福利') || text.includes('薪资')) {
-          tagAnalysis['薪资福利'] = (tagAnalysis['薪资福利'] || 0) + qa.total_responses
-        }
-        if (text.includes('发展') || text.includes('晋升')) {
-          tagAnalysis['职业发展'] = (tagAnalysis['职业发展'] || 0) + qa.total_responses
-        }
-      })
-      rawData = Object.entries(tagAnalysis).map(([name, value]) => ({
-        name,
-        value
-      }))
-      break
-    default:
-      // 默认显示第一个问题的回答分布
-      if (response.question_analytics && response.question_analytics.length > 0) {
-        const firstQuestion = response.question_analytics[0]
-        rawData = Object.entries(firstQuestion.response_distribution).map(([name, value]) => ({
-          name,
-          value
-        }))
-      }
+  // 适配新的 stats 响应结构：{ dimension: 'department' | 'position', stats: [{ dimension_value, response_count, total_score_sum, average_score }] }
+  if (response && response.dimension && Array.isArray(response.stats)) {
+    rawData = response.stats.map(item => ({
+      name: item.dimension_value || '未知',
+      value: item.response_count || 0
+    }))
+  } else {
+    chartData.value = []
+    return
   }
   
   // 根据图表类型格式化数据
@@ -406,9 +620,7 @@ const formatDataForChartType = (rawData) => {
       }
       
     case 'radar':
-      // 雷达图：简化格式，直接返回数组
       return rawData.map(item => item.value)
-      
     default:
       return rawData
   }
@@ -416,26 +628,24 @@ const formatDataForChartType = (rawData) => {
 
 // 从API响应更新表格数据
 const updateTableDataFromResponse = (response) => {
-  if (!response || !response.question_analytics) {
+  // 适配新的 stats 响应：维度统计，填充到表格中展示响应数
+  if (!response || !response.dimension || !Array.isArray(response.stats)) {
     tableData.value = []
     return
   }
-  
-  const totalAnswers = response.total_answers || 0
-  const newTableData = []
-  
-  response.question_analytics.forEach(qa => {
-    Object.entries(qa.response_distribution).forEach(([option, count]) => {
-      const percentage = totalAnswers > 0 ? ((count / totalAnswers) * 100).toFixed(1) : 0
-      newTableData.push({
-        question: qa.question_text,
-        option: option,
-        count: count,
-        percentage: parseFloat(percentage)
-      })
-    })
+
+  const totalResponses = response.stats.reduce((sum, item) => sum + (item.response_count || 0), 0)
+  const newTableData = response.stats.map(item => {
+    const count = item.response_count || 0
+    const percentage = totalResponses > 0 ? parseFloat(((count / totalResponses) * 100).toFixed(1)) : 0
+    return {
+      question: `维度：${response.dimension}`,
+      option: item.dimension_value || '未知',
+      count,
+      percentage
+    }
   })
-  
+
   tableData.value = newTableData
 }
 
@@ -443,7 +653,11 @@ const updateTableDataFromResponse = (response) => {
 const updateChartData = () => {
   // 重新加载分析数据以确保使用真实数据
   if (selectedSurvey.value) {
-    loadAnalysisData()
+    if (type === "line") {
+      loadLineData()
+    } else {
+      loadAnalysisData()
+    }
   }
 }
 
@@ -513,7 +727,7 @@ const generateSummary = async () => {
     const organizationId = 2 // 使用组织2，因为我们的测试数据在组织2中
     
     // 首先获取调研的详细数据
-    const surveyData = await analyticsApi.getSurveyAnalytics(organizationId, selectedSurvey.value)
+    const surveyData = await analyticsApi.getSurveyAnalytics(selectedSurvey.value, groupBy.value === 'position' ? 'position' : 'department')
     
     if (!surveyData) {
       throw new Error('无法获取调研数据')
@@ -541,7 +755,7 @@ const generateSummary = async () => {
       console.error('LLM API调用失败:', llmError)
       // 如果LLM API失败，尝试使用analytics API的AI总结
       // 如果LLM API失败，尝试使用analytics API的AI总结
-      const response = await analyticsApi.getSurveyAISummary(organizationId, selectedSurvey.value)
+      const response = await analyticsApi.getSurveyAISummary(selectedSurvey.value)
       
       if (response && response.summary) {
         aiSummary.value = response.summary
@@ -684,6 +898,26 @@ const setAuthToken = async () => {
 
 .data-table-panel {
   margin-bottom: 20px;
+}
+
+.line-chart-panel {
+  margin-bottom: 16px;
+}
+
+.chart-hint {
+  margin-bottom: 12px;
+}
+
+.pie-chart-panel {
+  margin-bottom: 16px;
+}
+
+.question-selector {
+  margin-bottom: 16px;
+}
+
+.question-checkbox {
+  margin: 4px 0;
 }
 
 .actions {
