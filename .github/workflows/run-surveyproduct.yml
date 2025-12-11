@@ -51,6 +51,7 @@ jobs:
     - name: Run the backend project  # 启动后端服务
       env:
         DATABASE_URL: mysql+pymysql://testuser:testpass@127.0.0.1:3306/survey_db
+        # 确保这些与 services.mysql 配置匹配，如果你的应用直接使用这些变量
         MYSQL_HOST: 127.0.0.1
         MYSQL_PORT: 3306
         MYSQL_USER: testuser
@@ -58,7 +59,15 @@ jobs:
         MYSQL_DATABASE: survey_db
       run: |
         cd survey_product_doc
-        python -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+        # !! 移除 --reload 标志 !!
+        # 使用 & 将 uvicorn 进程放到后台运行
+        # 增加 sleep 来等待后端服务启动，确保之后的前端或其他服务能够连接上
+        echo "Starting backend server..."
+        python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 &
+        echo "Waiting for backend server to start (10 seconds)..."
+        sleep 10 # 等待10秒。如果你的应用启动时间较长，可以适当增加此值。
+                 # 更健壮的做法是实现一个健康检查 endpoint，轮询直到服务成功响应。
+        echo "Backend server started."
     - name: Run the frontend project  # 启动前端服务
       run: |
         cd survey_product_doc/frontend
