@@ -59,7 +59,7 @@ app = FastAPI(
 # STATIC_FRONTEND_DIR = "survey_product_doc/frontend/out"
 #
 # 这里的路径是相对于 Render 部署时运行 'uvicorn' 命令的当前工作目录 (通常是项目根目录)。
-STATIC_FRONTEND_DIR = "frontend/dist"
+STATIC_FRONTEND_DIR = "dist"
 
 # --- 3. 挂载前端静态文件 ---
 # 使用 StaticFiles 将前端构建后的静态文件挂载到根 URL "/"。
