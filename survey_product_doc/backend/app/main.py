@@ -61,15 +61,6 @@ app = FastAPI(
 # 这里的路径是相对于 Render 部署时运行 'uvicorn' 命令的当前工作目录 (通常是项目根目录)。
 STATIC_FRONTEND_DIR = "frontend/dist"
 
-# --- 3. 挂载前端静态文件 ---
-# 使用 StaticFiles 将前端构建后的静态文件挂载到根 URL "/"。
-# 'html=True' 参数对于 Single Page Applications (SPA) 至关重要，
-# 它能确保当用户访问一个不存在的路由时（如 /dashboard），
-# FastAPI 返回 index.html，让前端的路由库（如 Vue Router, React Router）来处理。
-# 这个 mount 调用应该放在前面，因为它会处理根路径的请求。
-app.mount("/", StaticFiles(directory=STATIC_FRONTEND_DIR, html=True), name="static")
-
-
 # --- CORS 中间件配置 ---
 # 本地开发时用的源
 local_origins = [
@@ -113,6 +104,10 @@ app.include_router(analytics_api.router, tags=["analytics"], prefix="/api/v1")
 app.include_router(category_api.router, tags=["category"], prefix="/api/v1")
 app.include_router(tag_api.router, tags=["tag"], prefix="/api/v1")
 app.include_router(analysis_api.router, tags=["analysis"], prefix="/api/v1")
+
+# --- 3. 挂载前端静态文件 ---
+# 注意顺序：先注册 API，再挂载静态目录，避免 /api/* 被静态服务截获导致 404/405
+app.mount("/", StaticFiles(directory=STATIC_FRONTEND_DIR, html=True), name="static")
 
 # --- 移除了旧的根路由 ---
 # 你原有的 @app.get("/") 函数已被移除，因为它会被 app.mount("/", ...) 覆盖。
