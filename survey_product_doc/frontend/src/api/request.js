@@ -17,7 +17,8 @@ import router from '@/router';
  * @type {import('axios').AxiosInstance}
  */
 const service = axios.create({
-  baseURL: '/api/v1', // 使用相对路径，让Vite代理处理
+  // Render 部署：通过环境变量指定后端完整域名；本地默认为 '/api/v1' 走代理
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 300000, // 5分钟超时，适合LLM API调用
 });
 
