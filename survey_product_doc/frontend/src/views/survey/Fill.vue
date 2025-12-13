@@ -83,24 +83,21 @@
           </el-form-item>
 
           <el-form-item label="所属组织" prop="organizationId">
-            <el-collapse v-model="orgCollapse" accordion>
-              <el-collapse-item title="展开/选择所属组织" name="org">
-                <el-select
-                  v-model="respondentInfo.organizationId"
-                  placeholder="请选择组织（默认使用用户作为组织）"
-                  style="width: 100%"
-                  filterable
-                  clearable
-                >
-                  <el-option
-                    v-for="org in organizations"
-                    :key="org.id"
-                    :label="org.name"
-                    :value="org.id"
-                  />
-                </el-select>
-              </el-collapse-item>
-            </el-collapse>
+            <el-select
+              v-model="respondentInfo.organizationId"
+              placeholder="请选择所属组织"
+              style="width: 100%"
+              filterable
+              clearable
+              @change="onOrganizationChange"
+            >
+              <el-option
+                v-for="org in organizations"
+                :key="org.id"
+                :label="org.name"
+                :value="org.id"
+              />
+            </el-select>
           </el-form-item>
           
           <el-button 
@@ -263,13 +260,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { InfoFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import * as surveyAPI from '@/api/survey'
 import * as answerAPI from '@/api/answer'
-import * as userAPI from '@/api/user'
+import * as organizationAPI from '@/api/organization'
 
 // ===== 路由和基础状态 =====
 const route = useRoute()
@@ -301,7 +298,6 @@ const respondentInfo = ref({
   organizationName: '',
   completed: false
 })
-const orgCollapse = ref(['org'])
 
 const respondentRules = {
   name: [
@@ -320,16 +316,7 @@ const respondentRules = {
 }
 
 // ===== 部门职位数据 =====
-const departments = ref([
-  { id: 1, name: '技术部' },
-  { id: 2, name: '产品部' },
-  { id: 3, name: '运营部' },
-  { id: 4, name: '市场部' },
-  { id: 5, name: '人事部' },
-  { id: 6, name: '财务部' }
-])
-
-// ===== 组织列表（使用用户列表作为组织）
+const departments = ref([])
 const organizations = ref([])
 
 const positions = ref([
@@ -417,19 +404,42 @@ onBeforeUnmount(() => {
 // ===== 数据加载函数 =====
 
 /**
- * 加载组织（使用用户列表代替）
+ * 加载组织列表
  */
 const loadOrganizations = async () => {
   try {
-    const res = await userAPI.getUsers({ skip: 0, limit: 200 })
-    const items = res?.items || res || []
-    organizations.value = items.map((u) => ({
-      id: u.id,
-      name: u.username || u.email || `用户${u.id}`
+    // 优先使用按用户分布的组织；若方法不存在则回退公开组织
+    let list = []
+    if (organizationAPI.getOrganizationsByUsers) {
+      const res = await organizationAPI.getOrganizationsByUsers({ skip: 0, limit: 200 })
+      list = res?.items || res || []
+    } else {
+      const res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
+      list = res?.items || res || []
+    }
+    organizations.value = list.map((item) => ({
+      id: item.id,
+      name: item.name
     }))
   } catch (err) {
-    console.error('加载组织列表失败', err)
+    console.error('加载组织列表失败:', err)
     organizations.value = []
+  }
+}
+
+/**
+ * 切换组织时刷新部门列表
+ */
+const onOrganizationChange = async (orgId) => {
+  respondentInfo.value.department = null
+  departments.value = []
+  if (!orgId) return
+  try {
+    const res = await organizationAPI.getDepartments(orgId)
+    departments.value = res || []
+  } catch (err) {
+    console.error('加载部门失败:', err)
+    departments.value = []
   }
 }
 
@@ -461,6 +471,12 @@ const loadSurveyData = async () => {
         answers.value[question.id] = null
       }
     })
+    
+    // 调研级组织有值时，默认选中并加载部门
+    if (surveyInfo.value.organization_id) {
+      respondentInfo.value.organizationId = surveyInfo.value.organization_id
+      await onOrganizationChange(respondentInfo.value.organizationId)
+    }
     
     // 尝试恢复保存的进度
     await restoreProgress()
@@ -590,14 +606,13 @@ const submitSurvey = async () => {
     submitting.value = true
     
     // 准备提交数据
-    const selectedOrg = organizations.value.find(org => org.id === respondentInfo.value.organizationId)
     const submitData = {
       respondent_name: respondentInfo.value.name,
       department: departments.value.find(d => d.id === respondentInfo.value.department)?.name || '',
       position: positions.value.find(p => p.value === respondentInfo.value.position)?.label || '',
       department_id: respondentInfo.value.department,
-      organization_id: respondentInfo.value.organizationId || surveyInfo.value.organization_id,
-      organization_name: respondentInfo.value.organizationName || selectedOrg?.name || '',
+      organization_id: respondentInfo.value.organizationId,
+      organization_name: organizations.value.find(o => o.id === respondentInfo.value.organizationId)?.name || '',
       answers: answers.value
     }
     

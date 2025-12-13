@@ -85,6 +85,29 @@ def read_public_organizations(
     organizations = crud.get_public_organizations(db, skip=skip, limit=limit)
     return organizations
 
+@router.get("/organizations/by-users", response_model=List[schemas.OrganizationResponse])
+def read_organizations_with_users(
+    db: Session = Depends(deps.get_db),
+    skip: int = 0,
+    limit: int = 200,
+):
+    """
+    获取所有有用户关联的组织（user.organization_id 非空），用于企业对比/选择。
+    """
+    organizations = crud.get_organizations_with_users(db, skip=skip, limit=limit)
+    return organizations
+@router.get("/organizations/by-users", response_model=List[schemas.OrganizationResponse])
+def read_organizations_with_users(
+    db: Session = Depends(deps.get_db),
+    skip: int = 0,
+    limit: int = 200,
+):
+    """
+    获取所有有用户关联的组织（user.organization_id 非空），用于企业对比/选择。
+    """
+    organizations = crud.get_organizations_with_users(db, skip=skip, limit=limit)
+    return organizations
+
 @router.get("/organizations/{org_id}", response_model=schemas.OrganizationResponse)
 def read_organization_by_id(
     org_id: int,

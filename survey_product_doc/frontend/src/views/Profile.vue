@@ -37,11 +37,12 @@
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="所属组织">
-                <el-tag v-if="profileForm.organizationName" type="info">
-                  {{ profileForm.organizationName }}
-                </el-tag>
-                <span v-else class="text-muted">未分配组织</span>
+              <el-form-item label="所属组织" prop="organizationName">
+                <el-input
+                  v-model="profileForm.organizationName"
+                  placeholder="请输入所属组织名称（可新建）"
+                  clearable
+                />
               </el-form-item>
             </el-col>
           </el-row>
@@ -113,6 +114,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getCurrentUser, updateUser, changePassword as changePasswordApi } from '@/api/user'
+import * as organizationAPI from '@/api/organization'
 
 // 个人信息表单
 const profileFormRef = ref(null)
@@ -148,6 +150,9 @@ const profileRules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ],
+  organizationName: [
+    { required: false }
   ]
 }
 
@@ -201,16 +206,42 @@ const saveProfile = async () => {
   try {
     await profileFormRef.value.validate()
     saving.value = true
-    
     const updateData = {
       username: profileForm.value.username,
       email: profileForm.value.email
     }
-    
+
+    // 处理组织：如果填写了组织名称，尝试匹配已有组织；否则创建
+    const orgName = (profileForm.value.organizationName || '').trim()
+    if (orgName) {
+      let orgId = null
+      try {
+        let orgList = []
+        if (organizationAPI.getOrganizationsByUsers) {
+          const res = await organizationAPI.getOrganizationsByUsers({ skip: 0, limit: 200 })
+          orgList = res?.items || res || []
+        } else {
+          const res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
+          orgList = res?.items || res || []
+        }
+        const matched = orgList.find((o) => o.name === orgName)
+        if (matched) {
+          orgId = matched.id
+        } else {
+          // 创建新组织
+          const created = await organizationAPI.createOrganization({ name: orgName })
+          orgId = created.id
+        }
+      } catch (err) {
+        console.error('处理组织失败:', err)
+      }
+      updateData.organization_id = orgId
+    } else {
+      updateData.organization_id = null
+    }
+
     await updateUser(updateData)
     ElMessage.success('个人信息更新成功')
-    
-    // 重新获取用户信息
     await fetchUserInfo()
   } catch (error) {
     console.error('保存个人信息失败:', error)

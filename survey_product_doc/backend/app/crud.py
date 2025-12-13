@@ -916,6 +916,19 @@ def get_public_organizations(db: Session, skip: int = 0, limit: int = 100) -> Li
         models.Organization.is_active == True
     ).offset(skip).limit(limit).all()
 
+def get_organizations_with_users(db: Session, skip: int = 0, limit: int = 100) -> List[models.Organization]:
+    """
+    获取所有有用户关联的组织（user.organization_id 非空），去重
+    """
+    org_ids = db.query(models.User.organization_id)\
+        .filter(models.User.organization_id.isnot(None))\
+        .distinct()\
+        .offset(skip).limit(limit).all()
+    org_ids = [row[0] for row in org_ids if row and row[0] is not None]
+    if not org_ids:
+        return []
+    return db.query(models.Organization).filter(models.Organization.id.in_(org_ids)).all()
+
 def create_organization(db: Session, org: OrganizationCreate, owner_id: int) -> models.Organization:
     """
     创建新组织，并指定所有者
