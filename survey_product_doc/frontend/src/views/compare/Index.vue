@@ -45,85 +45,6 @@
           </el-select>
         </div>
         
-        <div class="filter-item">
-          <span class="filter-label">对比维度：</span>
-          <el-select 
-            v-model="compareDimension" 
-            placeholder="请选择对比维度"
-            class="filter-select"
-            @change="handleDimensionChange"
-          >
-            <el-option label="问题" value="question" />
-            <el-option label="问题分类" value="category" />
-            <el-option label="标签" value="tag" />
-          </el-select>
-        </div>
-        
-        <div class="filter-item" v-if="compareDimension === 'question'">
-          <span class="filter-label">选择问题：</span>
-          <el-select 
-            v-model="selectedQuestion" 
-            placeholder="请选择问题"
-            class="filter-select"
-            @change="refreshData"
-          >
-            <el-option 
-              v-for="item in questionList" 
-              :key="item.id" 
-              :label="item.text" 
-              :value="item.id"
-            />
-          </el-select>
-        </div>
-        
-        <div class="filter-item" v-else-if="compareDimension === 'category'">
-          <span class="filter-label">选择分类：</span>
-          <el-cascader
-            v-model="selectedCategory"
-            :options="categoryList"
-            :props="{
-              checkStrictly: true,
-              label: 'name',
-              value: 'id',
-              emitPath: false
-            }"
-            placeholder="请选择分类"
-            class="filter-select"
-            @change="refreshData"
-          />
-        </div>
-        
-        <div class="filter-item" v-else-if="compareDimension === 'tag'">
-          <span class="filter-label">选择标签：</span>
-          <el-select 
-            v-model="selectedTag" 
-            placeholder="请选择标签"
-            class="filter-select"
-            @change="refreshData"
-          >
-            <el-option 
-              v-for="item in tagList" 
-              :key="item.id" 
-              :label="item.name" 
-              :value="item.id"
-            />
-          </el-select>
-        </div>
-        
-        <div class="filter-item">
-          <span class="filter-label">图表类型：</span>
-          <el-select 
-            v-model="chartType" 
-            placeholder="请选择图表类型"
-            class="filter-select"
-            @change="refreshData"
-          >
-            <el-option label="柱状图" value="bar" />
-            <el-option label="折线图" value="line" />
-            <el-option label="雷达图" value="radar" />
-            <el-option label="饼图" value="pie" />
-          </el-select>
-        </div>
       </div>
       
       <!-- 应用按钮 -->
@@ -138,6 +59,89 @@
     <div class="compare-result" v-loading="loading">
       <div class="card result-panel" v-if="showResult">
         <h2 class="section-title">{{ compareTitle }}</h2>
+        
+        <!-- 结果页内的对比配置 -->
+        <div class="filter-grid result-controls">
+          <div class="filter-item">
+            <span class="filter-label">对比维度：</span>
+            <el-select 
+              v-model="compareDimension" 
+              placeholder="请选择对比维度"
+              class="filter-select"
+              @change="() => { handleDimensionChange(); refreshData(); }"
+            >
+              <el-option label="问题" value="question" />
+              <el-option label="问题分类" value="category" />
+              <el-option label="标签" value="tag" />
+            </el-select>
+          </div>
+          
+          <div class="filter-item" v-if="compareDimension === 'question'">
+            <span class="filter-label">选择问题：</span>
+            <el-select 
+              v-model="selectedQuestion" 
+              placeholder="请选择问题"
+              class="filter-select"
+              @change="refreshData"
+            >
+              <el-option 
+                v-for="item in questionList" 
+                :key="item.id" 
+                :label="item.text" 
+                :value="item.id"
+              />
+            </el-select>
+          </div>
+          
+          <div class="filter-item" v-else-if="compareDimension === 'category'">
+            <span class="filter-label">选择分类：</span>
+            <el-cascader
+              v-model="selectedCategory"
+              :options="categoryList"
+              :props="{
+                checkStrictly: true,
+                label: 'name',
+                value: 'id',
+                emitPath: false
+              }"
+              placeholder="请选择分类"
+              class="filter-select"
+              @change="refreshData"
+            />
+          </div>
+          
+          <div class="filter-item" v-else-if="compareDimension === 'tag'">
+            <span class="filter-label">选择标签：</span>
+            <el-select 
+              v-model="selectedTag" 
+              placeholder="请选择标签"
+              class="filter-select"
+              @change="refreshData"
+            >
+              <el-option 
+                v-for="item in tagList" 
+                :key="item.id" 
+                :label="item.name" 
+                :value="item.id"
+              />
+            </el-select>
+          </div>
+          
+          <div class="filter-item">
+            <span class="filter-label">图表类型：</span>
+            <el-select 
+              v-model="chartType" 
+              placeholder="请选择图表类型"
+              class="filter-select"
+              @change="refreshData"
+            >
+              <el-option label="柱状图" value="bar" />
+              <el-option label="折线图" value="line" />
+              <el-option label="雷达图" value="radar" />
+              <el-option label="饼图" value="pie" />
+            </el-select>
+          </div>
+        </div>
         
         <div class="chart-container">
           <AnalysisChart
@@ -428,8 +432,12 @@ const refreshQuestionList = async () => {
     // 设置题目列表
     questionList.value = questions || []
     
-    // 清空选择
-    selectedQuestion.value = null
+    // 维度为问题时，默认选中第一题
+    if (compareDimension.value === 'question' && questionList.value.length > 0) {
+      selectedQuestion.value = questionList.value[0].id
+    } else {
+      selectedQuestion.value = null
+    }
     selectedCategory.value = null
     selectedTag.value = null
     
@@ -449,7 +457,11 @@ const refreshQuestionList = async () => {
 
 // 处理维度变更
 const handleDimensionChange = () => {
-  selectedQuestion.value = null
+  if (compareDimension.value === 'question' && questionList.value.length > 0) {
+    selectedQuestion.value = questionList.value[0].id
+  } else {
+    selectedQuestion.value = null
+  }
   selectedCategory.value = null
   selectedTag.value = null
 }
