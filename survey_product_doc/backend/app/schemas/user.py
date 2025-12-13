@@ -33,6 +33,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     organization_id: Optional[int] = None # 用户可能暂时没有组织
+    organization_name: Optional[str] = None
 
     class Config:
         from_attributes = True # 兼容 SQLAlchemy ORM 对象

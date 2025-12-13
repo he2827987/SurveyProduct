@@ -23,6 +23,15 @@ async def read_users_me(current_user: UserModel = Depends(get_current_user)):
     获取当前登录用户的信息。
     - 需要有效的 JWT 访问令牌。
     """
+    # 补充 organization_name 便于前端显示
+    if current_user.organization_id:
+        try:
+            from backend.app import crud
+            org = crud.get_organization(get_db(), org_id=current_user.organization_id)  # type: ignore
+            if org:
+                setattr(current_user, "organization_name", org.name)
+        except Exception:
+            pass
     return current_user
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
@@ -95,6 +104,13 @@ async def update_current_user(
     - 只能更新自己的信息。
     """
     updated_user = user_service.update_user(db=db, user_id=current_user.id, user_update=user_update)
+    if updated_user and updated_user.organization_id:
+        try:
+            org = crud.get_organization(db, org_id=updated_user.organization_id)
+            if org:
+                setattr(updated_user, "organization_name", org.name)
+        except Exception:
+            pass
     return updated_user
 
 @router.put("/me/password")
