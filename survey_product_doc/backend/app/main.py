@@ -11,9 +11,10 @@
 # ---------------------------------------------------------------------------
 
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles # <-- 1. 导入 StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 
 # --- 导入你的数据库模型和API路由 ---
 # 确保你的数据库配置和API路由导入是正确的
@@ -109,9 +110,17 @@ app.include_router(analysis_api.router, tags=["analysis"], prefix="/api/v1")
 # 注意顺序：先注册 API，再挂载静态目录，避免 /api/* 被静态服务截获导致 404/405
 app.mount("/", StaticFiles(directory=STATIC_FRONTEND_DIR, html=True), name="static")
 
-# --- 移除了旧的根路由 ---
-# 你原有的 @app.get("/") 函数已被移除，因为它会被 app.mount("/", ...) 覆盖。
-# 原有的 read_root 函数返回 JSON 消息，现在根路径("/")将服务你的前端 index.html。
+# --- 4. Catch-all 路由用于 SPA 回退 ---
+# 对于非 API 路径，回退到前端 index.html，避免刷新 404
+@app.get("/{full_path:path}")
+def spa_fallback(full_path: str):
+    # 不拦截 API
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    index_file = os.path.join(STATIC_FRONTEND_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return JSONResponse(status_code=404, content={"detail": "Index file not found"})
 
 # --- 保留其他测试或健康检查路由 ---
 # 这些路由不会与静态文件服务或API路由冲突
