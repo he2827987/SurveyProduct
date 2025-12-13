@@ -6,39 +6,48 @@ from backend.app.models.question import QuestionType
 from typing import List, Dict, Any, Optional
 import json
 
-def get_survey_stats_by_dimension(db: Session, survey_id: int, dimension: str) -> List[Dict[str, Any]]:
+def get_survey_stats_by_dimension(
+    db: Session,
+    survey_id: int,
+    dimension: str,
+    organization_ids: Optional[List[int]] = None
+) -> List[Dict[str, Any]]:
     """
     按维度统计调研数据（总分、平均分）
     dimension: 'department' | 'position'
     """
-    if dimension not in ['department', 'position']:
+    if dimension not in ['department', 'position', 'organization']:
         return []
+    query = db.query(SurveyAnswer).filter(SurveyAnswer.survey_id == survey_id)
+    if organization_ids:
+        query = query.filter(SurveyAnswer.organization_id.in_(organization_ids))
 
-    # 动态选择分组字段
-    group_field = getattr(SurveyAnswer, dimension)
-    
-    stats = db.query(
-        group_field.label('group_key'),
-        func.count(SurveyAnswer.id).label('count'),
-        func.sum(SurveyAnswer.total_score).label('total_score_sum'),
-        func.avg(SurveyAnswer.total_score).label('average_score')
-    ).filter(
-        SurveyAnswer.survey_id == survey_id,
-        group_field.isnot(None) # 排除未填写部门/职位的
-    ).group_by(
-        group_field
-    ).all()
-    
+    result_map: Dict[str, Dict[str, float]] = {}
+    for ans in query.all():
+        if dimension == "organization":
+            key = ans.organization_name or (f"组织#{ans.organization_id}" if ans.organization_id is not None else None)
+        else:
+            key = getattr(ans, dimension, None)
+        if not key:
+            continue
+        if key not in result_map:
+            result_map[key] = {"count": 0, "total": 0.0, "avg_sum": 0.0}
+        result_map[key]["count"] += 1
+        if ans.total_score is not None:
+            result_map[key]["total"] += float(ans.total_score)
+
     result = []
-    for row in stats:
+    for k, v in result_map.items():
+        count = v["count"]
+        total = v["total"]
+        avg = total / count if count else 0.0
         result.append({
             "dimension": dimension,
-            "key": row.group_key,
-            "count": row.count,
-            "total_score_sum": float(row.total_score_sum) if row.total_score_sum else 0,
-            "average_score": float(row.average_score) if row.average_score else 0
+            "key": k,
+            "count": count,
+            "total_score_sum": round(total, 2),
+            "average_score": round(avg, 2)
         })
-        
     return result
 
 
@@ -46,7 +55,8 @@ def get_per_question_scores(
     db: Session,
     survey_id: int,
     department: Optional[str] = None,
-    position: Optional[str] = None
+    position: Optional[str] = None,
+    organization_ids: Optional[List[int]] = None
 ) -> List[Dict[str, Any]]:
     """
     统计指定问卷内每个问题的总分和平均分，可按部门、职位过滤回答者。
@@ -85,6 +95,8 @@ def get_per_question_scores(
         query = query.filter(SurveyAnswer.department == department)
     if position is not None:
         query = query.filter(SurveyAnswer.position == position)
+    if organization_ids:
+        query = query.filter(SurveyAnswer.organization_id.in_(organization_ids))
 
     answers = query.all()
 
@@ -126,15 +138,22 @@ def get_per_question_scores(
 
 
 
-def get_line_scores_by_dimension(db: Session, survey_id: int, dimension: str = "department", question_ids: Optional[List[int]] = None, include_survey_total: bool = False) -> Dict[str, Any]:
+def get_line_scores_by_dimension(
+    db: Session,
+    survey_id: int,
+    dimension: str = "department",
+    question_ids: Optional[List[int]] = None,
+    include_survey_total: bool = False,
+    organization_ids: Optional[List[int]] = None
+) -> Dict[str, Any]:
     """
     计算折线图数据：X轴为人群（部门/职位），Y轴为平均分。
     - question_ids 为空且 include_survey_total=True: 按问卷总分聚合
     - question_ids 不为空: 按指定题目聚合平均分
     可同时返回多条 series（问卷总分 + 多题）。
     """
-    if dimension not in ["department", "position"]:
-        raise ValueError("dimension must be 'department' or 'position'")
+    if dimension not in ["department", "position", "organization"]:
+        raise ValueError("dimension must be 'department', 'position', or 'organization'")
 
     from backend.app.models.answer import SurveyAnswer as SurveyAnswerModel
     from backend.app.models.question import Question as QuestionModel
@@ -144,13 +163,19 @@ def get_line_scores_by_dimension(db: Session, survey_id: int, dimension: str = "
 
     # 拉取答卷
     answers_query = db.query(SurveyAnswerModel).filter(SurveyAnswerModel.survey_id == survey_id)
+    if organization_ids:
+        answers_query = answers_query.filter(SurveyAnswerModel.organization_id.in_(organization_ids))
     answers = answers_query.all()
 
     # 收集人群列表
     categories_set = set()
     for ans in answers:
-        key = ans.department if dimension == "department" else ans.position
-        key = key or "未知%s" % ("部门" if dimension == "department" else "职位")
+        if dimension == "organization":
+            key = ans.organization_name or (f"组织#{ans.organization_id}" if ans.organization_id is not None else "未知组织")
+        elif dimension == "department":
+            key = ans.department or "未知部门"
+        else:
+            key = ans.position or "未知职位"
         categories_set.add(key)
     categories = sorted(categories_set)
 
@@ -160,8 +185,12 @@ def get_line_scores_by_dimension(db: Session, survey_id: int, dimension: str = "
     if include_survey_total:
         totals_map = {cat: {"sum": 0.0, "count": 0} for cat in categories}
         for ans in answers:
-            key = ans.department if dimension == "department" else ans.position
-            key = key or "未知%s" % ("部门" if dimension == "department" else "职位")
+            if dimension == "organization":
+                key = ans.organization_name or (f"组织#{ans.organization_id}" if ans.organization_id is not None else "未知组织")
+            elif dimension == "department":
+                key = ans.department or "未知部门"
+            else:
+                key = ans.position or "未知职位"
             if ans.total_score is not None:
                 totals_map[key]["sum"] += ans.total_score
                 totals_map[key]["count"] += 1
@@ -196,8 +225,12 @@ def get_line_scores_by_dimension(db: Session, survey_id: int, dimension: str = "
         }
 
         for ans in answers:
-            key = ans.department if dimension == "department" else ans.position
-            key = key or "未知%s" % ("部门" if dimension == "department" else "职位")
+            if dimension == "organization":
+                key = ans.organization_name or (f"组织#{ans.organization_id}" if ans.organization_id is not None else "未知组织")
+            elif dimension == "department":
+                key = ans.department or "未知部门"
+            else:
+                key = ans.position or "未知职位"
             try:
                 ans_data = json.loads(ans.answers)
             except Exception:
@@ -233,7 +266,8 @@ def get_pie_option_distribution(
     question_id: int,
     option_text: str,
     dimension: str = "department",
-    include_unanswered: bool = True
+    include_unanswered: bool = True,
+    organization_ids: Optional[List[int]] = None
 ) -> Dict[str, Any]:
     """
     统计指定题目的某个选项在不同人群下的选择占比，生成饼图数据。
@@ -241,8 +275,8 @@ def get_pie_option_distribution(
     - option_text: 选项文本；如果选择未作答，则传"(未作答)"
     - include_unanswered: 是否包含未作答作为一个扇区
     """
-    if dimension not in ["department", "position"]:
-        raise ValueError("dimension must be 'department' or 'position'")
+    if dimension not in ["department", "position", "organization"]:
+        raise ValueError("dimension must be 'department', 'position', or 'organization'")
 
     from backend.app.models.answer import SurveyAnswer as SurveyAnswerModel
     from backend.app.models.question import Question as QuestionModel
@@ -251,12 +285,19 @@ def get_pie_option_distribution(
     if not question_obj:
         return {"option": option_text, "dimension": dimension, "data": []}
 
-    answers = db.query(SurveyAnswerModel).filter(SurveyAnswerModel.survey_id == survey_id).all()
+    answers_query = db.query(SurveyAnswerModel).filter(SurveyAnswerModel.survey_id == survey_id)
+    if organization_ids:
+        answers_query = answers_query.filter(SurveyAnswerModel.organization_id.in_(organization_ids))
+    answers = answers_query.all()
 
     result_map: Dict[str, int] = {}
     for ans in answers:
-        key = ans.department if dimension == "department" else ans.position
-        key = key or "未知%s" % ("部门" if dimension == "department" else "职位")
+        if dimension == "organization":
+            key = ans.organization_name or (f"组织#{ans.organization_id}" if ans.organization_id is not None else "未知组织")
+        elif dimension == "department":
+            key = ans.department or "未知部门"
+        else:
+            key = ans.position or "未知职位"
 
         try:
             ans_data = json.loads(ans.answers) if ans.answers else {}

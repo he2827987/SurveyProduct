@@ -2,14 +2,36 @@ from sqlalchemy.orm import Session
 from backend.app.models.answer import SurveyAnswer
 from backend.app.models.question import Question, QuestionType
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
-def get_question_option_stats_by_department(db: Session, survey_id: int) -> List[Dict[str, Any]]:
+def _resolve_group_value(ans: SurveyAnswer, dimension: str) -> str:
+    if dimension == "department":
+        return ans.department or "未知部门"
+    if dimension == "position":
+        return ans.position or "未知职位"
+    if dimension == "organization":
+        if ans.organization_name:
+            return ans.organization_name
+        if ans.organization_id is not None:
+            return f"组织#{ans.organization_id}"
+        return "未知组织"
+    return "未指定"
+
+def get_question_option_stats(
+    db: Session,
+    survey_id: int,
+    dimension: str = "department",
+    organization_ids: Optional[List[int]] = None
+) -> List[Dict[str, Any]]:
     """
-    统计调研中每个问题的选项被选择次数，并按部门分布
+    统计调研中每个问题的选项被选择次数，并按指定维度分布。
+    维度：department / position / organization
     包括“未作答”统计；填空题仅区分“有答案/未作答”
     """
     from backend.app.services.survey_service import get_survey_questions
+    
+    if dimension not in ["department", "position", "organization"]:
+        return []
     
     # 1. 获取该问卷的所有问题
     questions = get_survey_questions(db, survey_id)
@@ -17,9 +39,12 @@ def get_question_option_stats_by_department(db: Session, survey_id: int) -> List
         return []
         
     # 2. 获取该问卷的所有回答
-    answers = db.query(SurveyAnswer).filter(SurveyAnswer.survey_id == survey_id).all()
+    answers_query = db.query(SurveyAnswer).filter(SurveyAnswer.survey_id == survey_id)
+    if organization_ids:
+        answers_query = answers_query.filter(SurveyAnswer.organization_id.in_(organization_ids))
+    answers = answers_query.all()
     
-    stats_map: Dict[str, Dict[str, Any]] = {} # question_id -> option_text -> department -> count
+    stats_map: Dict[str, Dict[str, Any]] = {} # question_id -> option_text -> group -> count
     
     # 初始化统计结构
     for question in questions:
@@ -43,12 +68,12 @@ def get_question_option_stats_by_department(db: Session, survey_id: int) -> List
         stats_map[q_id]["options_stats"]["(未作答)"] = {}
 
     for ans in answers:
-        dept = ans.department or "未知部门"
+        group_value = _resolve_group_value(ans, dimension)
         
         if not ans.answers:
             # 如果整个回答都为空，所有问题都算未作答
             for q_id in stats_map:
-                stats_map[q_id]["options_stats"]["(未作答)"][dept] = stats_map[q_id]["options_stats"]["(未作答)"].get(dept, 0) + 1
+                stats_map[q_id]["options_stats"]["(未作答)"][group_value] = stats_map[q_id]["options_stats"]["(未作答)"].get(group_value, 0) + 1
             continue
             
         try:
@@ -56,7 +81,7 @@ def get_question_option_stats_by_department(db: Session, survey_id: int) -> List
         except (json.JSONDecodeError, TypeError):
             # 解析失败，视为未作答
             for q_id in stats_map:
-                stats_map[q_id]["options_stats"]["(未作答)"][dept] = stats_map[q_id]["options_stats"]["(未作答)"].get(dept, 0) + 1
+                stats_map[q_id]["options_stats"]["(未作答)"][group_value] = stats_map[q_id]["options_stats"]["(未作答)"].get(group_value, 0) + 1
             continue
         
         # 遍历每个问题，判断是否回答
@@ -75,7 +100,7 @@ def get_question_option_stats_by_department(db: Session, survey_id: int) -> List
             
             if not has_answer:
                 # 计入未作答
-                q_stats["options_stats"]["(未作答)"][dept] = q_stats["options_stats"]["(未作答)"].get(dept, 0) + 1
+                q_stats["options_stats"]["(未作答)"][group_value] = q_stats["options_stats"]["(未作答)"].get(group_value, 0) + 1
             else:
                 is_choice = q_stats["type"] in [QuestionType.SINGLE_CHOICE, QuestionType.MULTI_CHOICE]
                 
@@ -93,12 +118,12 @@ def get_question_option_stats_by_department(db: Session, survey_id: int) -> List
                         if opt_text not in q_stats["options_stats"]:
                             q_stats["options_stats"][opt_text] = {}
                         
-                        q_stats["options_stats"][opt_text][dept] = q_stats["options_stats"][opt_text].get(dept, 0) + 1
+                        q_stats["options_stats"][opt_text][group_value] = q_stats["options_stats"][opt_text].get(group_value, 0) + 1
                 else:
                     # 非选择题：统一计入“有答案”
                     if "有答案" not in q_stats["options_stats"]:
                         q_stats["options_stats"]["有答案"] = {}
-                    q_stats["options_stats"]["有答案"][dept] = q_stats["options_stats"]["有答案"].get(dept, 0) + 1
+                    q_stats["options_stats"]["有答案"][group_value] = q_stats["options_stats"]["有答案"].get(group_value, 0) + 1
 
     # 3. 转换为前端友好的列表格式
     result = []

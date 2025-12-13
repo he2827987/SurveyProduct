@@ -802,6 +802,10 @@ def create_survey_answer(
     department = getattr(answer, 'department', None)
     position = getattr(answer, 'position', None)
 
+    # 组织信息
+    organization_id = getattr(answer, "organization_id", None)
+    organization_name = getattr(answer, "organization_name", None)
+
     # 将answers字典转换为JSON字符串存储
     db_answer = models.SurveyAnswer(
         survey_id=survey_id,
@@ -810,7 +814,9 @@ def create_survey_answer(
         answers=json.dumps(answer.answers),
         total_score=total_score,
         department=department,
-        position=position
+        position=position,
+        organization_id=organization_id,
+        organization_name=organization_name
     )
     db.add(db_answer)
     db.commit()

@@ -28,7 +28,12 @@ class SurveyAnswer(Base):
     # 存储受访者职位/等级（直接存储字符串）
     position = Column(Text, nullable=True)
 
+    # 记录所属组织
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    organization_name = Column(Text, nullable=True)
+
     # 关系
     survey = relationship("Survey", back_populates="answers")
     user = relationship("User", back_populates="answers")
     participant = relationship("Participant", back_populates="answers")
+    organization = relationship("Organization", backref="survey_answers")

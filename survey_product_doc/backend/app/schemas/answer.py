@@ -12,6 +12,7 @@ class SurveyAnswerCreate(BaseModel): # <-- 类名改为 SurveyAnswerCreate
     position: Optional[str] = Field(None, description="Respondent's position")
     department_id: Optional[int] = Field(None, description="Department ID")
     organization_id: Optional[int] = Field(None, description="Organization ID")
+    organization_name: Optional[str] = Field(None, description="Organization Name")
 
 # 用于返回给客户端的回答数据
 class SurveyAnswerInDBBase(BaseModel): # <-- 类名改为 SurveyAnswerInDBBase
@@ -23,6 +24,8 @@ class SurveyAnswerInDBBase(BaseModel): # <-- 类名改为 SurveyAnswerInDBBase
     total_score: Optional[float] = Field(0.0, description="Total score of the answer")
     department: Optional[str] = None
     position: Optional[str] = None
+    organization_id: Optional[int] = None
+    organization_name: Optional[str] = None
 
     class Config:
         from_attributes = True

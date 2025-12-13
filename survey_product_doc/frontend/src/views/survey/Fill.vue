@@ -81,6 +81,27 @@
               />
             </el-select>
           </el-form-item>
+
+          <el-form-item label="所属组织" prop="organizationId">
+            <el-collapse v-model="orgCollapse" accordion>
+              <el-collapse-item title="展开/选择所属组织" name="org">
+                <el-select
+                  v-model="respondentInfo.organizationId"
+                  placeholder="请选择组织（默认使用用户作为组织）"
+                  style="width: 100%"
+                  filterable
+                  clearable
+                >
+                  <el-option
+                    v-for="org in organizations"
+                    :key="org.id"
+                    :label="org.name"
+                    :value="org.id"
+                  />
+                </el-select>
+              </el-collapse-item>
+            </el-collapse>
+          </el-form-item>
           
           <el-button 
             type="primary" 
@@ -242,12 +263,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { InfoFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import * as surveyAPI from '@/api/survey'
 import * as answerAPI from '@/api/answer'
+import * as userAPI from '@/api/user'
 
 // ===== 路由和基础状态 =====
 const route = useRoute()
@@ -275,8 +297,11 @@ const respondentInfo = ref({
   name: '',
   department: null,
   position: null,
+  organizationId: null,
+  organizationName: '',
   completed: false
 })
+const orgCollapse = ref(['org'])
 
 const respondentRules = {
   name: [
@@ -288,6 +313,9 @@ const respondentRules = {
   ],
   position: [
     { required: true, message: '请选择职位', trigger: 'change' }
+  ],
+  organizationId: [
+    { required: true, message: '请选择所属组织', trigger: 'change' }
   ]
 }
 
@@ -300,6 +328,9 @@ const departments = ref([
   { id: 5, name: '人事部' },
   { id: 6, name: '财务部' }
 ])
+
+// ===== 组织列表（使用用户列表作为组织）
+const organizations = ref([])
 
 const positions = ref([
   { value: 'executive', label: '高管' },
@@ -328,6 +359,14 @@ const progressPercentage = computed(() => {
   if (questions.value.length === 0) return 0
   return Math.round((answeredCount.value / questions.value.length) * 100)
 })
+
+watch(
+  () => respondentInfo.value.organizationId,
+  (val) => {
+    const org = organizations.value.find((o) => o.id === val)
+    respondentInfo.value.organizationName = org?.name || ''
+  }
+)
 
 const isCurrentQuestionAnswered = computed(() => {
   const question = currentQuestion.value
@@ -364,6 +403,7 @@ let autoSaveTimer = null
 // ===== 生命周期钩子 =====
 
 onMounted(() => {
+  loadOrganizations()
   loadSurveyData()
   setupAutoSave()
 })
@@ -377,6 +417,23 @@ onBeforeUnmount(() => {
 // ===== 数据加载函数 =====
 
 /**
+ * 加载组织（使用用户列表代替）
+ */
+const loadOrganizations = async () => {
+  try {
+    const res = await userAPI.getUsers({ skip: 0, limit: 200 })
+    const items = res?.items || res || []
+    organizations.value = items.map((u) => ({
+      id: u.id,
+      name: u.username || u.email || `用户${u.id}`
+    }))
+  } catch (err) {
+    console.error('加载组织列表失败', err)
+    organizations.value = []
+  }
+}
+
+/**
  * 加载调研数据
  */
 const loadSurveyData = async () => {
@@ -388,7 +445,8 @@ const loadSurveyData = async () => {
     surveyInfo.value = {
       id: surveyResponse.id,
       title: surveyResponse.title,
-      description: surveyResponse.description || ''
+      description: surveyResponse.description || '',
+      organization_id: surveyResponse.organization_id || null
     }
     
     // 获取调研问题
@@ -532,12 +590,14 @@ const submitSurvey = async () => {
     submitting.value = true
     
     // 准备提交数据
+    const selectedOrg = organizations.value.find(org => org.id === respondentInfo.value.organizationId)
     const submitData = {
       respondent_name: respondentInfo.value.name,
       department: departments.value.find(d => d.id === respondentInfo.value.department)?.name || '',
       position: positions.value.find(p => p.value === respondentInfo.value.position)?.label || '',
       department_id: respondentInfo.value.department,
-      organization_id: surveyInfo.value.organization_id, // 添加组织ID
+      organization_id: respondentInfo.value.organizationId || surveyInfo.value.organization_id,
+      organization_name: respondentInfo.value.organizationName || selectedOrg?.name || '',
       answers: answers.value
     }
     

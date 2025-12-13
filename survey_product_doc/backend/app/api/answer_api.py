@@ -51,6 +51,13 @@ async def submit_survey_answer(
 
     # 创建参与者（如果是匿名回答）
     participant_id = None
+    # 补充默认组织ID：优先提交值，其次问卷组织，再其次当前用户
+    if not getattr(answer_in, "organization_id", None):
+        if db_survey.organization_id:
+            answer_in.organization_id = db_survey.organization_id
+        elif current_user and getattr(current_user, "organization_id", None):
+            answer_in.organization_id = current_user.organization_id
+
     if not current_user and hasattr(answer_in, 'respondent_name') and answer_in.respondent_name:
         from backend.app.models.participant import Participant
         
