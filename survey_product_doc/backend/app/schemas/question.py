@@ -96,33 +96,6 @@ class QuestionBase(BaseModel):
                     raise ValueError("触发条件格式错误，应为[{\"option_text\": \"选项A\"}]")
         return values
     
-    @validator('parent_question_id', 'trigger_options')
-    def validate_conditional_question(cls, v, values, field):
-        """
-        验证关联题的父题目和触发条件
-        关联题可以是任何题目类型，只要设置了parent_question_id和trigger_options
-        """
-        # 如果设置了parent_question_id，则必须同时设置trigger_options
-        parent_id = values.get('parent_question_id') if field.name == 'trigger_options' else v
-        trigger_opts = v if field.name == 'trigger_options' else values.get('trigger_options')
-        
-        if field.name == 'parent_question_id':
-            # 如果设置了parent_question_id，必须同时设置trigger_options
-            if v is not None:
-                if not trigger_opts or not isinstance(trigger_opts, list) or len(trigger_opts) == 0:
-                    raise ValueError("设置父题目ID时，必须同时指定至少一个触发选项")
-        elif field.name == 'trigger_options':
-            # 如果设置了trigger_options，必须同时设置parent_question_id
-            if v is not None:
-                if not parent_id:
-                    raise ValueError("设置触发选项时，必须同时指定父题目ID")
-                if not isinstance(v, list) or len(v) == 0:
-                    raise ValueError("关联题必须指定至少一个触发选项")
-                for trigger in v:
-                    if not isinstance(trigger, dict) or 'option_text' not in trigger:
-                        raise ValueError("触发条件格式错误，应为[{\"option_text\": \"选项A\"}]")
-        return v
-
 # ===== 问题创建模型 =====
 
 class QuestionCreate(QuestionBase):
