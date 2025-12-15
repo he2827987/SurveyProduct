@@ -6,7 +6,7 @@
 """
 
 # ===== 导入依赖 =====
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Any, Union, Dict
 from datetime import datetime
 from backend.app.models.question import QuestionType
@@ -41,47 +41,60 @@ class QuestionBase(BaseModel):
     parent_question_id: Optional[int] = Field(None, description="关联题的父题目ID")
     trigger_options: Optional[List[Dict[str, Any]]] = Field(None, description="触发条件列表，格式：[{\"option_text\": \"选项A\"}]")
 
-    @validator('options', pre=True, always=True)
-    def validate_options_for_type(cls, v, values):
+    @model_validator(mode="before")
+    def validate_options_for_type(cls, values: dict):
         """
         验证选项字段与问题类型的匹配性
         """
+        options = values.get("options")
         # 如果是字符串（从数据库读取时），尝试解析为JSON
-        if isinstance(v, str):
+        if isinstance(options, str):
             try:
-                v = json.loads(v)
+                options = json.loads(options)
             except json.JSONDecodeError:
                 pass
+        values["options"] = options
 
-        q_type = values.get('type')
-        # 关联题可以是任何类型，所以先检查是否是关联题
-        is_conditional = values.get('parent_question_id') is not None
-        
+        q_type = values.get("type")
+
         if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTI_CHOICE, QuestionType.SORT_ORDER]:
-            # 选择题类型和排序题必须提供选项（包括关联题中的选择题和排序题）
-            if not v:
+            if not options:
                 raise ValueError("选择题类型和排序题必须提供选项")
-            if not isinstance(v, list):
+            if not isinstance(options, list):
                 raise ValueError("选项必须是列表")
-            
-            # 排序题至少需要2个选项
-            if q_type == QuestionType.SORT_ORDER and len(v) < 2:
+
+            if q_type == QuestionType.SORT_ORDER and len(options) < 2:
                 raise ValueError("排序题至少需要2个选项")
-            
-            # 验证列表项
-            for item in v:
+
+            for item in options:
                 if isinstance(item, str):
                     continue
                 if isinstance(item, dict) or isinstance(item, QuestionOption):
                     continue
                 raise ValueError("选项必须是字符串或包含text, score, is_correct的对象")
-                
-        elif v is not None and q_type in [QuestionType.TEXT_INPUT, QuestionType.NUMBER_INPUT]:
-            # 文本、数字输入类型不能有选项
-            # 注意：如果是空列表，也可以接受
-            if isinstance(v, list) and len(v) > 0:
+        elif options is not None and q_type in [QuestionType.TEXT_INPUT, QuestionType.NUMBER_INPUT]:
+            if isinstance(options, list) and len(options) > 0:
                 raise ValueError("文本、数字输入类型的问题不能有选项")
-        return v
+
+        return values
+    
+    @model_validator(mode="after")
+    def validate_conditional_question(cls, values: dict):
+        parent_id = values.get("parent_question_id")
+        trigger_opts = values.get("trigger_options")
+
+        if parent_id is not None:
+            if not trigger_opts or not isinstance(trigger_opts, list) or len(trigger_opts) == 0:
+                raise ValueError("设置父题目ID时，必须同时指定至少一个触发选项")
+        if trigger_opts is not None:
+            if not parent_id:
+                raise ValueError("设置触发选项时，必须同时指定父题目ID")
+            if not isinstance(trigger_opts, list) or len(trigger_opts) == 0:
+                raise ValueError("关联题必须指定至少一个触发选项")
+            for trigger in trigger_opts:
+                if not isinstance(trigger, dict) or "option_text" not in trigger:
+                    raise ValueError("触发条件格式错误，应为[{\"option_text\": \"选项A\"}]")
+        return values
     
     @validator('parent_question_id', 'trigger_options')
     def validate_conditional_question(cls, v, values, field):
@@ -137,8 +150,8 @@ class QuestionUpdate(QuestionBase):
     min_score: Optional[int] = Field(None, description="选项分值最小值")
     max_score: Optional[int] = Field(None, description="选项分值最大值")
 
-    @validator('options', pre=True, always=True)
-    def validate_options_for_update(cls, v, values):
+    @model_validator(mode="before")
+    def validate_options_for_update(cls, values: dict):
         """
         验证更新时的选项字段与问题类型的匹配性
         
@@ -152,32 +165,31 @@ class QuestionUpdate(QuestionBase):
         Raises:
             ValueError: 当选项与问题类型不匹配时
         """
-        if isinstance(v, str):
+        options = values.get("options")
+        if isinstance(options, str):
             try:
-                v = json.loads(v)
+                options = json.loads(options)
             except json.JSONDecodeError:
                 pass
+        values["options"] = options
 
-        # 在更新时，如果类型没有改变，或者改变为选择题，才需要验证选项
-        if 'type' in values and values['type'] in [QuestionType.SINGLE_CHOICE, QuestionType.MULTI_CHOICE]:
-            # 选择题类型必须提供选项
-            if not v:
+        q_type = values.get("type")
+        if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTI_CHOICE]:
+            if not options:
                 raise ValueError("选择题类型必须提供选项")
-            if not isinstance(v, list):
+            if not isinstance(options, list):
                 raise ValueError("选项必须是列表")
-            
-            for item in v:
+            for item in options:
                 if isinstance(item, str):
                     continue
                 if isinstance(item, dict) or isinstance(item, QuestionOption):
                     continue
                 raise ValueError("选项必须是字符串或包含text, score, is_correct的对象")
-
-        elif 'type' in values and v is not None and values['type'] in [QuestionType.TEXT_INPUT, QuestionType.NUMBER_INPUT]:
-            # 文本或数字输入类型不能有选项
-            if isinstance(v, list) and len(v) > 0:
+        elif q_type in [QuestionType.TEXT_INPUT, QuestionType.NUMBER_INPUT] and options is not None:
+            if isinstance(options, list) and len(options) > 0:
                 raise ValueError("文本或数字输入类型的问题不能有选项")
-        return v
+
+        return values
 
 # ===== 问题响应模型 =====
 
