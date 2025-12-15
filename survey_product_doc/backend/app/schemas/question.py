@@ -180,26 +180,23 @@ class QuestionResponse(QuestionBase):
     created_at: Optional[datetime] = None  # 创建时间
     updated_at: Optional[datetime] = None  # 更新时间
 
-    @validator('tags', pre=True, always=True)
-    def extract_tag_names(cls, v):
+    @model_validator(mode="before")
+    def extract_tag_names(cls, values: dict):
         """
         从 Tag 对象列表中提取标签名称
-        如果 v 是 Tag 对象列表，返回 [tag.name]
-        如果 v 是字符串列表，直接返回
         """
-        if not v:
-            return []
-        
-        # 处理 ORM 对象列表
-        if isinstance(v, list):
-            # 检查列表中的第一个元素，如果是 Tag 对象（具有 name 属性），则提取 name
-            # 我们通过检查属性是否存在来判断
-            return [
-                item.name if hasattr(item, 'name') else item 
-                for item in v
+        tags = values.get("tags")
+        if not tags:
+            values["tags"] = []
+            return values
+
+        if isinstance(tags, list):
+            values["tags"] = [
+                item.name if hasattr(item, "name") else item
+                for item in tags
             ]
-            
-        return v
+
+        return values
 
     class Config:
         """
