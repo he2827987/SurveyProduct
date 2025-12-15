@@ -10,10 +10,16 @@
 # static files (index.html, JS, CSS, etc.) into a predictable directory.
 # ---------------------------------------------------------------------------
 
+import logging
 import os
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles # <-- 1. 导入 StaticFiles
+from fastapi.staticfiles import StaticFiles  # <-- 1. 导入 StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
 # --- 导入你的数据库模型和API路由 ---
@@ -32,6 +38,22 @@ from backend.app.api import analytics_api, category_api, tag_api, analysis_api
 # --- 数据库初始化 ---
 # 这一步会确保你的数据库表被创建。
 # 在生产环境中，可能更倾向于使用 alembic 或其他迁移工具。
+def run_alembic_migrations():
+    """
+    Run pending Alembic migrations before the app starts.
+    """
+    try:
+        root_dir = Path(__file__).resolve().parents[2]
+        alembic_cfg = Config(root_dir / "alembic.ini")
+        db_url = os.getenv("DATABASE_URL")
+        if db_url:
+            alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+        command.upgrade(alembic_cfg, "head")
+    except Exception as exc:  # pragma: no cover
+        logging.warning("Unable to run alembic migrations automatically: %s", exc)
+
+
+run_alembic_migrations()
 Base.metadata.create_all(bind=engine)
 
 # --- FastAPI 应用初始化 ---
@@ -119,18 +141,6 @@ else:
 # 对于非 API 路径，回退到前端 index.html，避免刷新 404
 @app.get("/{full_path:path}")
 def spa_fallback(full_path: str):
-    if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="Not Found")
-    index_file = os.path.join(STATIC_FRONTEND_DIR, "index.html")
-    if os.path.exists(index_file):
-        return FileResponse(index_file)
-    return JSONResponse(status_code=404, content={"detail": "Index file not found"})
-
-# --- 4. Catch-all 路由用于 SPA 回退 ---
-# 对于非 API 路径，回退到前端 index.html，避免刷新 404
-@app.get("/{full_path:path}")
-def spa_fallback(full_path: str):
-    # 不拦截 API
     if full_path.startswith("api/"):
         raise HTTPException(status_code=404, detail="Not Found")
     index_file = os.path.join(STATIC_FRONTEND_DIR, "index.html")
