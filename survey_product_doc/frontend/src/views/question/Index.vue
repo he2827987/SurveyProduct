@@ -290,6 +290,7 @@
           <el-select v-model="questionForm.type" placeholder="请选择题目类型" style="width: 100%">
             <el-option label="单选题" value="single" />
             <el-option label="多选题" value="multiple" />
+            <el-option label="排序题" value="sort" />
             <el-option label="填空题" value="text" />
             <el-option label="数字题" value="number" />
           </el-select>
@@ -334,8 +335,15 @@
           </el-select>
         </el-form-item>
         
-        <template v-if="questionForm.type === 'single' || questionForm.type === 'multiple'">
+        <template v-if="questionForm.type === 'single' || questionForm.type === 'multiple' || questionForm.type === 'sort'">
           <el-divider content-position="left">选项设置</el-divider>
+          <el-alert
+            v-if="questionForm.type === 'sort'"
+            title="提示：排序题需要至少2个选项，用户将对这些选项进行排序"
+            type="info"
+            :closable="false"
+            style="margin-bottom: 15px"
+          />
           
           <el-form-item label="启用分值">
             <el-switch v-model="questionForm.enable_score" />
@@ -362,7 +370,13 @@
               class="option-item"
             >
               <el-row :gutter="10" style="width: 100%" align="middle">
-                <el-col :span="questionForm.enable_score ? 14 : 20">
+                <!-- 排序题的拖拽手柄 -->
+                <el-col :span="2" v-if="questionForm.type === 'sort'" class="flex items-center justify-center">
+                  <el-icon style="cursor: move; color: #909399" class="drag-handle">
+                    <Rank />
+                  </el-icon>
+                </el-col>
+                <el-col :span="questionForm.enable_score ? (questionForm.type === 'sort' ? 12 : 14) : (questionForm.type === 'sort' ? 18 : 20)">
                   <el-input
                     v-model="questionForm.options[index].text"
                     placeholder="请输入选项内容"
@@ -381,7 +395,7 @@
                       style="width: 100%"
                    />
                 </el-col>
-                <el-col :span="2" class="flex items-center justify-center">
+                <el-col :span="2" class="flex items-center justify-center" v-if="questionForm.type !== 'sort'">
                     <el-tooltip content="设为正确答案" placement="top">
                         <el-checkbox v-model="questionForm.options[index].is_correct" />
                     </el-tooltip>
@@ -389,6 +403,25 @@
                 <el-col :span="2">
                   <el-button @click="removeOption(index)" :disabled="questionForm.options.length <= 2" style="width: 100%">
                     <el-icon><Delete /></el-icon>
+                  </el-button>
+                </el-col>
+                <!-- 排序题的上移下移按钮 -->
+                <el-col :span="4" v-if="questionForm.type === 'sort'" class="flex items-center gap-2">
+                  <el-button 
+                    size="small" 
+                    @click="moveOptionUp(index)" 
+                    :disabled="index === 0"
+                    text
+                  >
+                    <el-icon><ArrowUp /></el-icon>
+                  </el-button>
+                  <el-button 
+                    size="small" 
+                    @click="moveOptionDown(index)" 
+                    :disabled="index === questionForm.options.length - 1"
+                    text
+                  >
+                    <el-icon><ArrowDown /></el-icon>
                   </el-button>
                 </el-col>
               </el-row>
@@ -422,6 +455,53 @@
             <el-input-number v-model="questionForm.max_value" :min="-999999" />
           </el-form-item>
         </template>
+        
+        <!-- 关联题设置 -->
+        <el-divider content-position="left">关联题设置（可选）</el-divider>
+        <el-form-item label="父题目">
+          <el-select 
+            v-model="questionForm.parent_question_id" 
+            placeholder="选择父题目（留空表示非关联题）" 
+            clearable
+            filterable
+            style="width: 100%"
+            @change="handleParentQuestionChange"
+          >
+            <el-option
+              v-for="q in availableParentQuestions"
+              :key="q.id"
+              :label="`Q${q.order || q.id}: ${q.text.substring(0, 50)}${q.text.length > 50 ? '...' : ''}`"
+              :value="q.id"
+            />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item 
+          v-if="questionForm.parent_question_id" 
+          label="触发选项"
+          :rules="[{ required: questionForm.parent_question_id !== null, message: '请选择至少一个触发选项' }]"
+        >
+          <el-select 
+            v-model="questionForm.trigger_options" 
+            placeholder="选择触发选项（当父题目选择这些选项时，此题目才会显示）" 
+            multiple
+            filterable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="opt in parentQuestionOptions"
+              :key="opt"
+              :label="opt"
+              :value="opt"
+            />
+          </el-select>
+          <el-alert
+            title="提示：当父题目选择了上述任一选项时，此题目才会显示给用户"
+            type="info"
+            :closable="false"
+            style="margin-top: 10px"
+          />
+        </el-form-item>
       </el-form>
       
       <template #footer>
@@ -688,7 +768,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Edit, Search, DocumentCopy, Download } from '@element-plus/icons-vue'
+import { Plus, Delete, Edit, Search, DocumentCopy, Download, Rank, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { createGlobalQuestion, getGlobalQuestions, updateQuestion, deleteQuestion, getQuestionCategoryTree, createQuestionCategory, updateQuestionCategory, deleteQuestionCategory, getQuestionTags, createQuestionTag, deleteQuestionTag } from '@/api/question'
 
 // 分类树数据
@@ -794,7 +874,9 @@ const questionForm = ref({
   enable_score: false,
   min_score: 0,
   max_score: 10,
-  max_length: 500
+  max_length: 500,
+  parent_question_id: null,
+  trigger_options: []
 })
 
 const categoryFormRef = ref(null)
@@ -1190,10 +1272,12 @@ const getQuestionTypeTag = (type) => {
   const types = {
     'single': { label: '单选题', type: 'primary' },
     'multiple': { label: '多选题', type: 'success' },
+    'sort': { label: '排序题', type: 'warning' },
     'text': { label: '填空题', type: 'warning' },
     'number': { label: '数字题', type: 'info' },
     'single_choice': { label: '单选题', type: 'primary' },
     'multi_choice': { label: '多选题', type: 'success' },
+    'sort_order': { label: '排序题', type: 'warning' },
     'text_input': { label: '填空题', type: 'warning' },
     'number_input': { label: '数字题', type: 'info' }
   }
@@ -1262,6 +1346,29 @@ if (questionData.options && typeof questionData.options === 'string') {
       questionData.tags = []
     }
     
+    // 处理关联题字段
+    if (questionData.parent_question_id) {
+      questionData.parent_question_id = questionData.parent_question_id
+    } else {
+      questionData.parent_question_id = null
+    }
+    
+    // 处理trigger_options（从后端JSON字符串解析）
+    if (questionData.trigger_options) {
+      if (typeof questionData.trigger_options === 'string') {
+        try {
+          const parsed = JSON.parse(questionData.trigger_options)
+          questionData.trigger_options = parsed.map(t => t.option_text || t)
+        } catch (e) {
+          questionData.trigger_options = []
+        }
+      } else if (Array.isArray(questionData.trigger_options)) {
+        questionData.trigger_options = questionData.trigger_options.map(t => t.option_text || t)
+      }
+    } else {
+      questionData.trigger_options = []
+    }
+    
     questionForm.value = questionData
   } else {
     // 新增模式，重置表单
@@ -1278,7 +1385,9 @@ if (questionData.options && typeof questionData.options === 'string') {
       max_score: 10,
       max_length: 500,
       min_value: 0,
-      max_value: 999999
+      max_value: 999999,
+      parent_question_id: null,
+      trigger_options: []
     }
   }
   
@@ -1297,6 +1406,80 @@ const removeOption = (index) => {
   if (questionForm.value.options.length > 2) {
     questionForm.value.options.splice(index, 1)
   }
+}
+
+// 排序题：上移选项
+const moveOptionUp = (index) => {
+  if (index > 0) {
+    const options = questionForm.value.options
+    const temp = options[index]
+    options[index] = options[index - 1]
+    options[index - 1] = temp
+  }
+}
+
+// 排序题：下移选项
+const moveOptionDown = (index) => {
+  const options = questionForm.value.options
+  if (index < options.length - 1) {
+    const temp = options[index]
+    options[index] = options[index + 1]
+    options[index + 1] = temp
+  }
+}
+
+// 可用的父题目列表（排除当前题目和已经是关联题的题目）
+const availableParentQuestions = computed(() => {
+  return questions.value.filter(q => {
+    // 排除当前编辑的题目
+    if (questionForm.value.id && q.id === questionForm.value.id) {
+      return false
+    }
+    // 只显示选择题类型的题目作为父题目（因为需要选项来触发）
+    const qType = mapQuestionTypeForUI(q.type)
+    return qType === 'single' || qType === 'multiple'
+  })
+})
+
+// 父题目的选项列表
+const parentQuestionOptions = computed(() => {
+  if (!questionForm.value.parent_question_id) {
+    return []
+  }
+  const parentQuestion = questions.value.find(q => q.id === questionForm.value.parent_question_id)
+  if (!parentQuestion) {
+    return []
+  }
+  
+  // 解析父题目的选项
+  let options = []
+  if (parentQuestion.options) {
+    if (typeof parentQuestion.options === 'string') {
+      try {
+        options = JSON.parse(parentQuestion.options)
+      } catch (e) {
+        return []
+      }
+    } else if (Array.isArray(parentQuestion.options)) {
+      options = parentQuestion.options
+    }
+  }
+  
+  // 提取选项文本
+  return options.map(opt => {
+    if (typeof opt === 'string') {
+      return opt
+    } else if (opt && opt.text) {
+      return opt.text
+    }
+    return String(opt)
+  })
+})
+
+// 处理父题目变化
+const handleParentQuestionChange = () => {
+  // 当父题目改变时，清空触发选项
+  questionForm.value.trigger_options = []
 }
 
 // 保存题目
@@ -1319,7 +1502,19 @@ const saveQuestion = () => {
           payload.options = null
         }
         
-        // 4. 确保 survey_id 为 null 表示存入全局题库
+        // 4. 处理关联题字段
+        // 将trigger_options转换为后端需要的格式：[{"option_text": "选项A"}]
+        if (payload.trigger_options && Array.isArray(payload.trigger_options)) {
+          payload.trigger_options = payload.trigger_options.map(opt => ({
+            option_text: opt
+          }))
+        } else if (!payload.parent_question_id) {
+          // 如果没有父题目，清空trigger_options
+          payload.trigger_options = null
+          payload.parent_question_id = null
+        }
+        
+        // 5. 确保 survey_id 为 null 表示存入全局题库
         payload.survey_id = null
 
         let response
@@ -1534,26 +1729,29 @@ const exportQuestionDetail = () => {
   }
 };
 
-// 将前端 UI 的类型值映射为后端 API 的枚举值
-const mapQuestionTypeForApi = (uiType) => {
-  const mapping = {
-    'single': 'single_choice',
-    'multiple': 'multi_choice',
-    'text': 'text_input',
-    'number': 'number_input'
-  }
-  return mapping[uiType] || uiType // 如果找不到映射，就返回原值
-}
-
 // 将后端 API 的枚举值映射为前端 UI 的类型值
 const mapQuestionTypeForUI = (apiType) => {
   const mapping = {
     'single_choice': 'single',
     'multi_choice': 'multiple',
+    'sort_order': 'sort',
     'text_input': 'text',
-    'number_input': 'number'
+    'number_input': 'number',
+    'conditional': 'conditional' // 关联题可以是任何类型，这里保留
   }
   return mapping[apiType] || apiType
+}
+
+// 将前端 UI 的类型值映射为后端 API 的枚举值
+const mapQuestionTypeForApi = (uiType) => {
+  const mapping = {
+    'single': 'single_choice',
+    'multiple': 'multi_choice',
+    'sort': 'sort_order',
+    'text': 'text_input',
+    'number': 'number_input'
+  }
+  return mapping[uiType] || uiType
 }
 </script>
 

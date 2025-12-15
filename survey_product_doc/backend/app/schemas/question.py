@@ -38,6 +38,8 @@ class QuestionBase(BaseModel):
     min_score: Optional[int] = Field(0, description="选项分值最小值")
     max_score: Optional[int] = Field(10, description="选项分值最大值")
     tags: Optional[List[str]] = Field(None, description="题目标签列表")
+    parent_question_id: Optional[int] = Field(None, description="关联题的父题目ID")
+    trigger_options: Optional[List[Dict[str, Any]]] = Field(None, description="触发条件列表，格式：[{\"option_text\": \"选项A\"}]")
 
     @validator('options', pre=True, always=True)
     def validate_options_for_type(cls, v, values):
@@ -52,12 +54,19 @@ class QuestionBase(BaseModel):
                 pass
 
         q_type = values.get('type')
-        if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTI_CHOICE]:
-            # 选择题类型必须提供选项
+        # 关联题可以是任何类型，所以先检查是否是关联题
+        is_conditional = values.get('parent_question_id') is not None
+        
+        if q_type in [QuestionType.SINGLE_CHOICE, QuestionType.MULTI_CHOICE, QuestionType.SORT_ORDER]:
+            # 选择题类型和排序题必须提供选项（包括关联题中的选择题和排序题）
             if not v:
-                raise ValueError("选择题类型必须提供选项")
+                raise ValueError("选择题类型和排序题必须提供选项")
             if not isinstance(v, list):
                 raise ValueError("选项必须是列表")
+            
+            # 排序题至少需要2个选项
+            if q_type == QuestionType.SORT_ORDER and len(v) < 2:
+                raise ValueError("排序题至少需要2个选项")
             
             # 验证列表项
             for item in v:
@@ -68,10 +77,37 @@ class QuestionBase(BaseModel):
                 raise ValueError("选项必须是字符串或包含text, score, is_correct的对象")
                 
         elif v is not None and q_type in [QuestionType.TEXT_INPUT, QuestionType.NUMBER_INPUT]:
-            # 文本或数字输入类型不能有选项
+            # 文本、数字输入类型不能有选项
             # 注意：如果是空列表，也可以接受
             if isinstance(v, list) and len(v) > 0:
-                raise ValueError("文本或数字输入类型的问题不能有选项")
+                raise ValueError("文本、数字输入类型的问题不能有选项")
+        return v
+    
+    @validator('parent_question_id', 'trigger_options')
+    def validate_conditional_question(cls, v, values, field):
+        """
+        验证关联题的父题目和触发条件
+        关联题可以是任何题目类型，只要设置了parent_question_id和trigger_options
+        """
+        # 如果设置了parent_question_id，则必须同时设置trigger_options
+        parent_id = values.get('parent_question_id') if field.name == 'trigger_options' else v
+        trigger_opts = v if field.name == 'trigger_options' else values.get('trigger_options')
+        
+        if field.name == 'parent_question_id':
+            # 如果设置了parent_question_id，必须同时设置trigger_options
+            if v is not None:
+                if not trigger_opts or not isinstance(trigger_opts, list) or len(trigger_opts) == 0:
+                    raise ValueError("设置父题目ID时，必须同时指定至少一个触发选项")
+        elif field.name == 'trigger_options':
+            # 如果设置了trigger_options，必须同时设置parent_question_id
+            if v is not None:
+                if not parent_id:
+                    raise ValueError("设置触发选项时，必须同时指定父题目ID")
+                if not isinstance(v, list) or len(v) == 0:
+                    raise ValueError("关联题必须指定至少一个触发选项")
+                for trigger in v:
+                    if not isinstance(trigger, dict) or 'option_text' not in trigger:
+                        raise ValueError("触发条件格式错误，应为[{\"option_text\": \"选项A\"}]")
         return v
 
 # ===== 问题创建模型 =====

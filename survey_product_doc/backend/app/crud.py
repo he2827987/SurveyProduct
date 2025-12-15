@@ -432,6 +432,15 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
                 db_question.options = None # 如果更新为None，则清空
             del update_data["options"] # 从update_data中移除，避免重复处理
 
+        # 特殊处理trigger_options字段（关联题的触发条件）
+        if "trigger_options" in update_data:
+            if update_data["trigger_options"] is not None:
+                trigger_data = update_data["trigger_options"]
+                db_question.trigger_options = cast(str, json.dumps(trigger_data, ensure_ascii=False))
+            else:
+                db_question.trigger_options = None
+            del update_data["trigger_options"]
+
         for key, value in update_data.items():
             setattr(db_question, key, value)
 
@@ -495,6 +504,11 @@ def create_global_question(db: Session, question: schemas.QuestionCreate, owner_
                 for opt in options_data
             ]
         question_data['options'] = json.dumps(options_data, ensure_ascii=False)
+    
+    # 序列化trigger_options为JSON字符串（关联题的触发条件）
+    if 'trigger_options' in question_data and question_data['trigger_options'] is not None:
+        trigger_data = question_data['trigger_options']
+        question_data['trigger_options'] = json.dumps(trigger_data, ensure_ascii=False)
         
     db_question = models.Question(**question_data)
     # 如果QuestionCreate中没有survey_id，它将是None
@@ -667,6 +681,11 @@ def create_organization_question(db: Session, question: schemas.QuestionCreate, 
                 for opt in options_data
             ]
         question_data['options'] = json.dumps(options_data, ensure_ascii=False)
+    
+    # 序列化trigger_options为JSON字符串（关联题的触发条件）
+    if 'trigger_options' in question_data and question_data['trigger_options'] is not None:
+        trigger_data = question_data['trigger_options']
+        question_data['trigger_options'] = json.dumps(trigger_data, ensure_ascii=False)
         
     db_question = models.Question(**question_data)
     # 如果QuestionCreate中没有survey_id，它将是None

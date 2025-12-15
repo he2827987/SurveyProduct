@@ -27,6 +27,8 @@ class QuestionType(enum.Enum):
     MULTI_CHOICE = "multi_choice"    # 多选题
     TEXT_INPUT = "text_input"        # 文本输入题（填空）
     NUMBER_INPUT = "number_input"    # 数字输入题
+    SORT_ORDER = "sort_order"        # 排序题
+    CONDITIONAL = "conditional"     # 关联题（条件题）
 
 # ===== 问题数据库模型 =====
 
@@ -74,6 +76,10 @@ class Question(Base):
     is_required = Column(Boolean, default=False)  # 是否必填
     order = Column(Integer, default=0)  # 问题在问卷中的排序
     usage_count = Column(Integer, default=0)  # 使用次数统计
+    
+    # ===== 关联题字段 =====
+    parent_question_id = Column(Integer, ForeignKey("questions.id"), nullable=True)  # 关联题的父题目ID
+    trigger_options = Column(Text, nullable=True)  # 触发条件（JSON格式，存储触发该关联题的选项列表）
     
     # ===== 时间戳字段 =====
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))

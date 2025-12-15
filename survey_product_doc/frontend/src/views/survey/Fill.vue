@@ -23,7 +23,7 @@
       <div class="progress-section">
         <div class="progress-info">
           <span>填写进度</span>
-          <span>{{ answeredCount }}/{{ questions.length }}</span>
+          <span>{{ answeredCount }}/{{ visibleQuestions.length }}</span>
         </div>
         <el-progress 
           :percentage="progressPercentage" 
@@ -125,7 +125,7 @@
           </el-button>
           
           <span class="question-counter">
-            {{ currentQuestionIndex + 1 }} / {{ questions.length }}
+            {{ currentQuestionIndex + 1 }} / {{ visibleQuestions.length }}
           </span>
           
           <el-button 
@@ -196,6 +196,52 @@
               style="width: 100%"
             />
           </div>
+          
+          <!-- 排序题 -->
+          <div v-else-if="currentQuestion.type === 'sort_order'" class="question-sort">
+            <el-alert
+              title="请将选项按您的偏好顺序排列（拖拽或使用上下箭头）"
+              type="info"
+              :closable="false"
+              style="margin-bottom: 15px"
+            />
+            <div class="sort-options">
+              <div
+                v-for="(option, index) in getSortedOptions(currentQuestion.id)"
+                :key="option"
+                class="sort-option-item"
+              >
+                <el-row :gutter="10" align="middle">
+                  <el-col :span="2" class="sort-handle">
+                    <el-icon style="cursor: move; color: #909399">
+                      <Rank />
+                    </el-icon>
+                  </el-col>
+                  <el-col :span="18">
+                    <div class="sort-option-text">{{ index + 1 }}. {{ option }}</div>
+                  </el-col>
+                  <el-col :span="4" class="sort-actions">
+                    <el-button
+                      size="small"
+                      @click="moveSortOptionUp(currentQuestion.id, index)"
+                      :disabled="index === 0"
+                      text
+                    >
+                      <el-icon><ArrowUp /></el-icon>
+                    </el-button>
+                    <el-button
+                      size="small"
+                      @click="moveSortOptionDown(currentQuestion.id, index)"
+                      :disabled="index === getSortedOptions(currentQuestion.id).length - 1"
+                      text
+                    >
+                      <el-icon><ArrowDown /></el-icon>
+                    </el-button>
+                  </el-col>
+                </el-row>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 操作按钮 -->
@@ -219,7 +265,7 @@
           </el-button>
           
           <el-button 
-            v-if="currentQuestionIndex === questions.length - 1"
+            v-if="currentQuestionIndex === visibleQuestions.length - 1"
             type="success"
             @click="submitSurvey"
             size="large"
@@ -263,7 +309,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { InfoFilled, CircleCheckFilled } from '@element-plus/icons-vue'
+import { InfoFilled, CircleCheckFilled, Rank, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import * as surveyAPI from '@/api/survey'
 import * as answerAPI from '@/api/answer'
 import * as organizationAPI from '@/api/organization'
@@ -331,20 +377,59 @@ const positions = ref([
 const currentQuestionIndex = ref(0)
 const answers = ref({})
 
+// 过滤应该显示的题目（关联题根据条件显示）
+const visibleQuestions = computed(() => {
+  return questions.value.filter(question => {
+    // 如果不是关联题，直接显示
+    if (!question.parent_question_id) {
+      return true
+    }
+    
+    // 如果是关联题，检查父题目的答案是否包含触发选项
+    const parentAnswer = answers.value[question.parent_question_id]
+    if (!parentAnswer) {
+      return false
+    }
+    
+    // 获取触发选项列表
+    const triggerOptions = question.trigger_options || []
+    if (triggerOptions.length === 0) {
+      return false
+    }
+    
+    // 提取触发选项的文本
+    const triggerTexts = triggerOptions.map(t => t.option_text || t)
+    
+    // 检查父题目的答案
+    if (Array.isArray(parentAnswer)) {
+      // 多选题：检查答案数组中是否包含任一触发选项
+      return parentAnswer.some(ans => triggerTexts.includes(ans))
+    } else {
+      // 单选题：检查答案是否等于任一触发选项
+      return triggerTexts.includes(parentAnswer)
+    }
+  })
+})
+
 const currentQuestion = computed(() => {
-  return questions.value[currentQuestionIndex.value] || {}
+  return visibleQuestions.value[currentQuestionIndex.value] || {}
 })
 
 const answeredCount = computed(() => {
-  return Object.keys(answers.value).filter(key => {
-    const answer = answers.value[key]
+  return visibleQuestions.value.filter(question => {
+    const answer = answers.value[question.id]
+    if (question.type === 'multi_choice') {
+      return Array.isArray(answer) && answer.length > 0
+    } else if (question.type === 'sort_order') {
+      return Array.isArray(answer) && answer.length > 0
+    }
     return answer !== null && answer !== undefined && answer !== ''
   }).length
 })
 
 const progressPercentage = computed(() => {
-  if (questions.value.length === 0) return 0
-  return Math.round((answeredCount.value / questions.value.length) * 100)
+  if (visibleQuestions.value.length === 0) return 0
+  return Math.round((answeredCount.value / visibleQuestions.value.length) * 100)
 })
 
 watch(
@@ -357,6 +442,8 @@ watch(
 
 const isCurrentQuestionAnswered = computed(() => {
   const question = currentQuestion.value
+  if (!question || !question.id) return true
+  
   const answer = answers.value[question.id]
   
   if (!question.is_required) return true
@@ -365,15 +452,23 @@ const isCurrentQuestionAnswered = computed(() => {
     return Array.isArray(answer) && answer.length > 0
   }
   
+  if (question.type === 'sort_order') {
+    return Array.isArray(answer) && answer.length > 0
+  }
+  
   return answer !== null && answer !== undefined && answer !== ''
 })
 
 const isAllQuestionsAnswered = computed(() => {
-  return questions.value.every(question => {
+  return visibleQuestions.value.every(question => {
     if (!question.is_required) return true
     
     const answer = answers.value[question.id]
     if (question.type === 'multi_choice') {
+      return Array.isArray(answer) && answer.length > 0
+    }
+    
+    if (question.type === 'sort_order') {
       return Array.isArray(answer) && answer.length > 0
     }
     
@@ -461,12 +556,29 @@ const loadSurveyData = async () => {
     
     // 获取调研问题
     const questionsResponse = await surveyAPI.getSurveyQuestions(surveyId.value)
-    questions.value = questionsResponse || []
+    const allQuestions = questionsResponse || []
+    
+    // 处理关联题的trigger_options（从JSON字符串解析）
+    allQuestions.forEach(question => {
+      if (question.trigger_options && typeof question.trigger_options === 'string') {
+        try {
+          question.trigger_options = JSON.parse(question.trigger_options)
+        } catch (e) {
+          question.trigger_options = []
+        }
+      }
+    })
+    
+    // 存储所有题目（包括关联题）
+    questions.value = allQuestions
     
     // 初始化答案对象
     questions.value.forEach(question => {
       if (question.type === 'multi_choice') {
         answers.value[question.id] = []
+      } else if (question.type === 'sort_order') {
+        // 排序题的答案是一个选项数组（按顺序）
+        answers.value[question.id] = question.options ? [...question.options] : []
       } else {
         answers.value[question.id] = null
       }
@@ -581,10 +693,56 @@ const previousQuestion = () => {
  * 下一题
  */
 const nextQuestion = () => {
-  if (currentQuestionIndex.value < questions.value.length - 1) {
+  if (currentQuestionIndex.value < visibleQuestions.value.length - 1) {
     currentQuestionIndex.value++
     saveProgress()
   }
+}
+
+// ===== 排序题相关函数 =====
+
+/**
+ * 获取排序题的当前排序选项
+ */
+const getSortedOptions = (questionId) => {
+  const answer = answers.value[questionId]
+  if (Array.isArray(answer) && answer.length > 0) {
+    return answer
+  }
+  // 如果没有答案，返回原始选项顺序
+  const question = questions.value.find(q => q.id === questionId)
+  if (question && question.options) {
+    return Array.isArray(question.options) ? question.options : []
+  }
+  return []
+}
+
+/**
+ * 排序题：上移选项
+ */
+const moveSortOptionUp = (questionId, index) => {
+  const answer = answers.value[questionId]
+  if (!Array.isArray(answer) || index <= 0) return
+  
+  const temp = answer[index]
+  answer[index] = answer[index - 1]
+  answer[index - 1] = temp
+  answers.value[questionId] = [...answer] // 触发响应式更新
+  saveProgress()
+}
+
+/**
+ * 排序题：下移选项
+ */
+const moveSortOptionDown = (questionId, index) => {
+  const answer = answers.value[questionId]
+  if (!Array.isArray(answer) || index >= answer.length - 1) return
+  
+  const temp = answer[index]
+  answer[index] = answer[index + 1]
+  answer[index + 1] = temp
+  answers.value[questionId] = [...answer] // 触发响应式更新
+  saveProgress()
 }
 
 /**
