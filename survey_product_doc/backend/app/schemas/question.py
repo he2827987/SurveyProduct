@@ -7,7 +7,7 @@
 
 # ===== 导入依赖 =====
 from pydantic import BaseModel, Field, validator
-from typing import List, Optional, Any, Union
+from typing import List, Optional, Any, Union, Dict
 from datetime import datetime
 from backend.app.models.question import QuestionType
 import json
