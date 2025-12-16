@@ -216,14 +216,8 @@ const saveProfile = async () => {
     if (orgName) {
       let orgId = null
       try {
-        let orgList = []
-        if (organizationAPI.getOrganizationsByUsers) {
-          const res = await organizationAPI.getOrganizationsByUsers({ skip: 0, limit: 200 })
-          orgList = res?.items || res || []
-        } else {
-          const res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
-          orgList = res?.items || res || []
-        }
+        const res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
+        const orgList = res?.items || res || []
         const matched = orgList.find((o) => o.name === orgName)
         if (matched) {
           orgId = matched.id

@@ -504,15 +504,8 @@ onBeforeUnmount(() => {
  */
 const loadOrganizations = async () => {
   try {
-    // 优先使用按用户分布的组织；若方法不存在则回退公开组织
-    let list = []
-    if (organizationAPI.getOrganizationsByUsers) {
-      const res = await organizationAPI.getOrganizationsByUsers({ skip: 0, limit: 200 })
-      list = res?.items || res || []
-    } else {
-      const res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
-      list = res?.items || res || []
-    }
+    const res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
+    const list = res?.items || res || []
     organizations.value = list.map((item) => ({
       id: item.id,
       name: item.name
