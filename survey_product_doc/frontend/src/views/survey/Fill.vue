@@ -50,6 +50,24 @@
             />
           </el-form-item>
           
+          <el-form-item label="所属组织" prop="organizationId">
+            <el-select
+              v-model="respondentInfo.organizationId"
+              placeholder="请选择所属组织"
+              style="width: 100%"
+              filterable
+              clearable
+              @change="onOrganizationChange"
+            >
+              <el-option
+                v-for="org in organizations"
+                :key="org.id"
+                :label="org.name"
+                :value="org.id"
+              />
+            </el-select>
+          </el-form-item>
+
           <el-form-item label="部门" prop="department">
             <el-select 
               v-model="respondentInfo.department"
@@ -82,23 +100,6 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item label="所属组织" prop="organizationId">
-            <el-select
-              v-model="respondentInfo.organizationId"
-              placeholder="请选择所属组织"
-              style="width: 100%"
-              filterable
-              clearable
-              @change="onOrganizationChange"
-            >
-              <el-option
-                v-for="org in organizations"
-                :key="org.id"
-                :label="org.name"
-                :value="org.id"
-              />
-            </el-select>
-          </el-form-item>
           
           <el-button 
             type="primary" 
@@ -530,7 +531,7 @@ const onOrganizationChange = async (orgId) => {
   departments.value = []
   if (!orgId) return
   try {
-    const res = await organizationAPI.getDepartments(orgId)
+    const res = await organizationAPI.getPublicDepartments(orgId)
     departments.value = res || []
   } catch (err) {
     console.error('加载部门失败:', err)

@@ -47,6 +47,10 @@ export function getPublicOrganizations(params = {}) {
   return request.get('/organizations/public/', { params })
 }
 
+export function getPublicDepartments(organizationId, params = {}) {
+  return request.get(`/organizations/${organizationId}/departments/public`, { params })
+}
+
 /**
  * 根据ID获取组织详情
  * @param {number} organizationId - 组织ID

@@ -34,6 +34,25 @@ def get_departments(
     
     return departments
 
+@router.get("/organizations/{org_id}/departments/public", response_model=List[DepartmentResponse])
+def get_public_departments(
+    org_id: int,
+    db: Session = Depends(get_db),
+):
+    """获取公开的组织部门列表（无需认证）"""
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="组织不存在"
+        )
+
+    departments = db.query(Department).filter(
+        Department.organization_id == org_id,
+        Department.is_active == True
+    ).all()
+    return departments
+
 @router.get("/organizations/{org_id}/departments/tree", response_model=List[DepartmentResponse])
 def get_department_tree(
     org_id: int,
