@@ -12,6 +12,15 @@ from datetime import datetime
 from backend.app.models.question import QuestionType
 import json
 
+
+def _prepare_values(values):
+    if isinstance(values, dict):
+        return values
+    if hasattr(values, "__dict__"):
+        result = {k: v for k, v in vars(values).items() if not k.startswith("_sa")}
+        return result
+    return values
+
 # ===== 选项模型 =====
 
 class QuestionOption(BaseModel):
@@ -42,10 +51,11 @@ class QuestionBase(BaseModel):
     trigger_options: Optional[List[Dict[str, Any]]] = Field(None, description="触发条件列表，格式：[{\"option_text\": \"选项A\"}]")
 
     @model_validator(mode="before")
-    def validate_options_for_type(cls, values: dict):
+    def validate_options_for_type(cls, values):
         """
         验证选项字段与问题类型的匹配性
         """
+        values = _prepare_values(values)
         options = values.get("options")
         # 如果是字符串（从数据库读取时），尝试解析为JSON
         if isinstance(options, str):
@@ -79,7 +89,8 @@ class QuestionBase(BaseModel):
         return values
     
     @model_validator(mode="after")
-    def validate_conditional_question(cls, values: dict):
+    def validate_conditional_question(cls, values):
+        values = _prepare_values(values)
         parent_id = values.get("parent_question_id")
         trigger_opts = values.get("trigger_options")
 
@@ -124,7 +135,7 @@ class QuestionUpdate(QuestionBase):
     max_score: Optional[int] = Field(None, description="选项分值最大值")
 
     @model_validator(mode="before")
-    def validate_options_for_update(cls, values: dict):
+    def validate_options_for_update(cls, values):
         """
         验证更新时的选项字段与问题类型的匹配性
         
@@ -138,6 +149,7 @@ class QuestionUpdate(QuestionBase):
         Raises:
             ValueError: 当选项与问题类型不匹配时
         """
+        values = _prepare_values(values)
         options = values.get("options")
         if isinstance(options, str):
             try:
@@ -180,22 +192,26 @@ class QuestionResponse(QuestionBase):
     created_at: Optional[datetime] = None  # 创建时间
     updated_at: Optional[datetime] = None  # 更新时间
 
-    @model_validator(mode="before")
-    def extract_tag_names(cls, values: dict):
+    @model_validator(mode="after")
+    def normalize_tags(cls, values):
         """
-        从 Tag 对象列表中提取标签名称
+        Normalize tags to plain strings after validation.
         """
-        tags = values.get("tags")
-        if not tags:
-            values["tags"] = []
+        if isinstance(values, dict):
+            tags = values.get("tags")
+        else:
+            tags = getattr(values, "tags", None)
+
+        normalized = []
+        if tags:
+            for item in tags:
+                normalized.append(item.name if hasattr(item, "name") else item)
+
+        if isinstance(values, dict):
+            values["tags"] = normalized
             return values
 
-        if isinstance(tags, list):
-            values["tags"] = [
-                item.name if hasattr(item, "name") else item
-                for item in tags
-            ]
-
+        setattr(values, "tags", normalized)
         return values
 
     class Config:
