@@ -507,7 +507,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="questionDialog.visible = false">取消</el-button>
-          <el-button type="primary" @click="saveQuestion">确定</el-button>
+          <el-button type="primary" :loading="savingQuestion" :disabled="savingQuestion" @click="saveQuestion">确定</el-button>
         </div>
       </template>
     </el-dialog>
@@ -815,6 +815,7 @@ const creatingTag = ref(false)
 
 // 题目列表数据
 const questionList = ref([])
+const savingQuestion = ref(false)
 
 // 所有标签
 const allTags = computed(() => {
@@ -1430,7 +1431,7 @@ const moveOptionDown = (index) => {
 
 // 可用的父题目列表（排除当前题目和已经是关联题的题目）
 const availableParentQuestions = computed(() => {
-  return questions.value.filter(q => {
+  return questionList.value.filter(q => {
     // 排除当前编辑的题目
     if (questionForm.value.id && q.id === questionForm.value.id) {
       return false
@@ -1446,7 +1447,7 @@ const parentQuestionOptions = computed(() => {
   if (!questionForm.value.parent_question_id) {
     return []
   }
-  const parentQuestion = questions.value.find(q => q.id === questionForm.value.parent_question_id)
+  const parentQuestion = questionList.value.find(q => q.id === questionForm.value.parent_question_id)
   if (!parentQuestion) {
     return []
   }
@@ -1484,13 +1485,14 @@ const handleParentQuestionChange = () => {
 
 // 保存题目
 const saveQuestion = () => {
-  console.log("开始调用 saveQuestion 函数...");
-  console.log("调用 validate 前的 questionForm.value:", questionForm.value);
+  if (savingQuestion.value) return
   questionFormRef.value.validate(async (valid) => {
-    console.log("表单验证回调被调用，valid 的值是:", valid); // <-- 新增
-    if (valid) {
-      console.log("表单验证通过，开始处理表单数据...");
-      try {
+    if (!valid) {
+      ElMessage.warning('请检查表单输入是否正确。')
+      return
+    }
+    savingQuestion.value = true
+    try {
         // 1. 深拷贝表单数据，避免修改原始表单
         const payload = JSON.parse(JSON.stringify(questionForm.value))
         
@@ -1526,18 +1528,10 @@ const saveQuestion = () => {
           await fetchQuestions()
           await fetchCategories() // 更新分类计数
         } else {
-          // --- 修改：添加新题目 (调用全局题库 API) ---
-          console.log("开始调用 createGlobalQuestion API...");
-          // 调用 API 创建题目
-          console.log("即将执行: await createGlobalQuestion(payload)");
-          response = await createGlobalQuestion(payload) // <-- 确保是 payload
-          console.log('后端 createGlobalQuestion 响应:', response); // 调试用
-          
+          response = await createGlobalQuestion(payload)
           ElMessage.success('题目添加成功')
-          // 刷新题目列表以获取最新数据
           await fetchQuestions()
-          await fetchCategories() // 更新分类计数
-          console.log("saveQuestion 函数执行完成（新增分支）。");
+          await fetchCategories()
         }
         questionDialog.value.visible = false
       } catch (error) {
@@ -1567,10 +1561,8 @@ const saveQuestion = () => {
             errorMsg = error.message || '未知错误';
         }
         ElMessage.error('保存题目失败: ' + errorMsg);
-      }
-    } else {
-        console.log("表单验证未通过。");
-        ElMessage.warning('请检查表单输入是否正确。'); // <-- 新增用户提示
+      } finally {
+        savingQuestion.value = false
     }
   })
 }
