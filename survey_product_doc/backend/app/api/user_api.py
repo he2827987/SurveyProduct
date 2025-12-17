@@ -18,7 +18,7 @@ router = APIRouter(
 )
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: UserModel = Depends(get_current_user)):
+async def read_users_me(current_user: UserModel = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     获取当前登录用户的信息。
     - 需要有效的 JWT 访问令牌。
@@ -27,7 +27,7 @@ async def read_users_me(current_user: UserModel = Depends(get_current_user)):
     if current_user.organization_id:
         try:
             from backend.app import crud
-            org = crud.get_organization(get_db(), org_id=current_user.organization_id)  # type: ignore
+            org = crud.get_organization(db, org_id=current_user.organization_id)  # type: ignore
             if org:
                 setattr(current_user, "organization_name", org.name)
         except Exception:
