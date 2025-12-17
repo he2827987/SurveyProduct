@@ -124,6 +124,7 @@
           <div class="chart-hint">
             <el-tag type="info" effect="light">X轴：{{ groupBy === 'position' ? '职位' : '部门' }}；Y轴：平均分；可选择整张问卷或题目作为 series</el-tag>
           </div>
+          <!-- 暂时隐藏统计对象选择，默认只统计问卷总分
           <div class="question-selector">
             <el-collapse v-model="questionCollapse">
               <el-collapse-item title="统计对象" name="line-scope">
@@ -138,6 +139,7 @@
               </el-collapse-item>
             </el-collapse>
           </div>
+          -->
           <div class="chart-item mb-8 p-4 border rounded">
             <AnalysisChart
               type="line"
