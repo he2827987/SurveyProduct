@@ -3,7 +3,7 @@
   <div class="org-container page-container">
     <div class="flex-between">
       <h1 class="page-title">组织架构管理</h1>
-      <el-button type="primary" @click="openAddDeptDialog()">新增部门</el-button>
+      <el-button type="primary" @click="openAddDeptDialog()" :disabled="!currentOrgId">新增部门</el-button>
     </div>
     
     <div class="org-content">
@@ -505,6 +505,10 @@ const editDepartment = (dept) => {
 
 // 保存部门
 const saveDepartment = async () => {
+  if (!currentOrgId.value) {
+    ElMessage.error('未找到组织信息，无法创建部门')
+    return
+  }
   deptFormRef.value.validate(async (valid) => {
     if (!valid) return
     
