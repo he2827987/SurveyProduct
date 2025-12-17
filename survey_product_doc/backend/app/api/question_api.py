@@ -275,7 +275,7 @@ def read_organization_questions(
 def read_global_questions(
     skip: int = 0,
     limit: int = 100,
-    type: Optional[str] = Query(None, description="按题目类型筛选 (single, multiple, text)"),
+    type: Optional[str] = Query(None, description="按题目类型筛选 (single_choice/multi_choice/text_input/number_input，也兼容 single/multiple/text/number)"),
     search: Optional[str] = Query(None, description="搜索关键词，在题目文本中搜索"),
     sort_by: Optional[str] = Query(None, description="排序方式 (created_desc, created_asc, usage_desc, usage_asc)"),
     category_id: Optional[int] = Query(None, description="按分类ID筛选"),
@@ -298,6 +298,16 @@ def read_global_questions(
     tag_filter = None
     if tags:
         tag_filter = [tag.strip() for tag in tags.split(',') if tag.strip()]
+
+    # 兼容前端旧枚举/别名
+    type_alias_map = {
+        "single": "single_choice",
+        "multiple": "multi_choice",
+        "text": "text_input",
+        "number": "number_input",
+    }
+    if type in type_alias_map:
+        type = type_alias_map[type]
     
     result = crud.get_global_questions(db, skip=skip, limit=limit, type_filter=type, search_filter=search, sort_by=sort_by, category_filter=category_id, tag_filter=tag_filter)
     return result
