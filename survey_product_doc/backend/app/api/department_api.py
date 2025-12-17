@@ -91,18 +91,17 @@ def create_department(
             detail="没有权限管理该组织"
         )
     
-    # 检查部门编码是否重复
-    if department.code:
-        existing_dept = db.query(Department).filter(
-            Department.organization_id == org_id,
-            Department.code == department.code,
-            Department.is_active == True
-        ).first()
-        if existing_dept:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="部门编码已存在"
-            )
+    # 自动生成部门编码 (按创建顺序依次分配)
+    dept_count = db.query(Department).filter(Department.organization_id == org_id).count()
+    new_code = f"{dept_count + 1:03d}"
+    
+    # 防止冲突 (循环查找直到找到可用的编码)
+    while db.query(Department).filter(
+        Department.organization_id == org_id,
+        Department.code == new_code
+    ).first():
+        dept_count += 1
+        new_code = f"{dept_count + 1:03d}"
     
     # 计算部门层级
     level = 1
@@ -120,7 +119,7 @@ def create_department(
     
     new_department = Department(
         name=department.name,
-        code=department.code,
+        code=new_code, # 使用自动生成的编码
         description=department.description,
         organization_id=org_id,
         parent_id=department.parent_id,
@@ -155,22 +154,16 @@ def update_department(
             detail="没有权限管理该组织"
         )
     
-    # 检查部门编码是否重复
-    if department.code and department.code != dept.code:
-        existing_dept = db.query(Department).filter(
-            Department.organization_id == dept.organization_id,
-            Department.code == department.code,
-            Department.id != dept_id,
-            Department.is_active == True
-        ).first()
-        if existing_dept:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="部门编码已存在"
-            )
+    # 部门编码不允许修改，忽略前端传递的 code
+    # if department.code and department.code != dept.code: ...
     
     # 更新部门信息
-    for field, value in department.dict(exclude_unset=True).items():
+    update_data = department.dict(exclude_unset=True)
+    # 移除 code，防止被更新
+    if 'code' in update_data:
+        del update_data['code']
+
+    for field, value in update_data.items():
         setattr(dept, field, value)
     
     db.commit()

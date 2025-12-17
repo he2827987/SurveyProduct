@@ -120,9 +120,7 @@
         <el-form-item label="部门名称" prop="name">
           <el-input v-model="deptForm.name" placeholder="请输入部门名称" />
         </el-form-item>
-        <el-form-item label="部门编码" prop="code">
-          <el-input v-model="deptForm.code" placeholder="请输入部门编码" />
-        </el-form-item>
+        <!-- 部门编码由系统自动生成 -->
         <el-form-item label="上级部门">
           <el-tree-select
             v-model="deptForm.parentId"
@@ -366,7 +364,6 @@ const deptDialog = ref({
 const deptFormRef = ref(null)
 const deptForm = ref({
   name: '',
-  code: '',
   parentId: null,
   remark: ''
 })
@@ -376,10 +373,6 @@ const deptRules = {
   name: [
     { required: true, message: '请输入部门名称', trigger: 'blur' },
     { min: 2, max: 50, message: '部门名称长度在 2 到 50 个字符', trigger: 'blur' }
-  ],
-  code: [
-    { required: true, message: '请输入部门编码', trigger: 'blur' },
-    { pattern: /^[A-Z0-9_-]+$/, message: '部门编码只能包含大写字母、数字、下划线和横线', trigger: 'blur' }
   ]
 }
 
@@ -484,7 +477,6 @@ const openAddDeptDialog = (parentDept = null) => {
   deptDialog.value.visible = true
   deptForm.value = {
     name: '',
-    code: '',
     parentId: parentDept ? parentDept.id : null,
     remark: ''
   }
@@ -497,7 +489,7 @@ const editDepartment = (dept) => {
   deptForm.value = {
     id: dept.id,
     name: dept.name,
-    code: dept.code,
+    // 编辑时也不允许修改code，后端忽略，或者前端不显示
     parentId: dept.parentId,
     remark: dept.remark || ''
   }
@@ -517,7 +509,7 @@ const saveDepartment = async () => {
       
       const payload = {
         name: deptForm.value.name,
-        code: deptForm.value.code,
+        // code: 由后端生成
         parent_id: deptForm.value.parentId,
         description: deptForm.value.remark // 后端字段名为 description
       }
