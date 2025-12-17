@@ -85,6 +85,27 @@
       </el-row>
     </div>
     
+    <!-- 简易概览图表 -->
+
+    <!-- 简易概览图表 -->
+    <el-row :gutter="20">
+      <el-col :xs="24" :sm="24" :md="12">
+        <el-card shadow="hover" class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">问卷完成率</div>
+            <el-tag type="success" size="small">本月</el-tag>
+          </div>
+          <div class="chart-body">
+            <el-progress type="dashboard" :percentage="72" :stroke-width="10" color="#409EFF" />
+            <div class="chart-legend">
+              <span class="dot primary"></span> 已完成 72%
+              <span class="dot muted"></span> 进行中 18%
+              <span class="dot warning"></span> 未开始 10%
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
     <!-- 最近调研 -->
     <div class="card recent-surveys">
       <div class="flex-between">
@@ -155,31 +176,31 @@ const quickEntries = [
   {
     title: '组织架构管理',
     description: '管理公司部门结构',
-    icon: 'OfficeBuilding',
+    icon: OfficeBuilding,
     path: '/organization'
   },
   {
     title: '题库管理',
     description: '创建和编辑调研题目',
-    icon: 'Document',
+    icon: Document,
     path: '/question'
   },
   {
     title: '发起调研',
     description: '创建新的调研任务',
-    icon: 'Edit',
+    icon: Edit,
     path: '/survey'
   },
   {
     title: '数据分析',
     description: '查看调研结果分析',
-    icon: 'Histogram',
+    icon: Histogram,
     path: '/analysis'
   },
   {
     title: '企业对比',
     description: '多企业调研数据对比',
-    icon: 'PieChart',
+    icon: PieChart,
     path: '/compare'
   }
 ]
@@ -324,7 +345,8 @@ const viewAnalysis = (id) => {
 .entry-card {
   margin-bottom: 20px;
   cursor: pointer;
-  height: 120px;
+  padding: 12px;
+  height: 140px;
   display: flex;
   flex-direction: column;
   justify-content: center;
