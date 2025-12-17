@@ -168,6 +168,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import * as surveyApi from '@/api/survey'
 import { Calendar, User, Download, CopyDocument, Share, Document, QuestionFilled } from '@element-plus/icons-vue'
 import { generateSurveyQRCode, downloadQRCode as downloadQRCodeUtil } from '@/utils/qrcode'
 
@@ -277,6 +278,10 @@ const confirmSettings = async () => {
       localNetworkIP: qrSettings.value.localNetworkIP
     }
     
+    await surveyApi.updateSurveyStatus(props.surveyId, {
+      status: 'active',
+      end_time: qrSettings.value.expireTime ? qrSettings.value.expireTime.toISOString() : null
+    })
     const url = await generateSurveyQRCode(props.surveyId, options)
     qrCodeUrl.value = url
     

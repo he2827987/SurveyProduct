@@ -1,17 +1,69 @@
 # backend/app/services/survey_service.py
 
+from typing import Optional
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.app.models.survey import Survey as SurveyModel
+from backend.app.models.survey_question import SurveyQuestion
+from backend.app.models.answer import SurveyAnswer
 from backend.app.schemas.survey import SurveyCreate, SurveyUpdate
-from backend.app.models.user import User as UserModel # 导入 User 模型，用于类型提示
+import datetime
+
+def _attach_counts(db: Session, surveys: list[SurveyModel]):
+    survey_ids = [survey.id for survey in surveys if survey]
+    if not survey_ids:
+        return
+
+    question_counts = dict(
+        db.query(SurveyQuestion.survey_id, func.count(SurveyQuestion.question_id))
+        .filter(SurveyQuestion.survey_id.in_(survey_ids))
+        .group_by(SurveyQuestion.survey_id)
+        .all()
+    )
+
+    response_counts = dict(
+        db.query(SurveyAnswer.survey_id, func.count(SurveyAnswer.id))
+        .filter(SurveyAnswer.survey_id.in_(survey_ids))
+        .group_by(SurveyAnswer.survey_id)
+        .all()
+    )
+
+    for survey in surveys:
+        if not survey:
+            continue
+        setattr(survey, 'question_count', question_counts.get(survey.id, 0))
+        setattr(survey, 'response_count', response_counts.get(survey.id, 0))
+
+def _normalize_status(db: Session, survey: SurveyModel):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    expected_status = survey.status
+
+    if survey.end_time and now >= survey.end_time:
+        expected_status = 'completed'
+    elif survey.start_time and (not survey.end_time or now < survey.end_time):
+        expected_status = 'active'
+    elif not survey.start_time:
+        expected_status = 'pending'
+
+    if expected_status != survey.status:
+        survey.status = expected_status
+        db.add(survey)
+        db.commit()
+        db.refresh(survey)
+
+def _enrich_surveys(db: Session, surveys: list[SurveyModel]):
+    if not surveys:
+        return surveys
+    for survey in surveys:
+        _normalize_status(db, survey)
+    _attach_counts(db, surveys)
+    return surveys
 
 def create_survey(db: Session, survey: SurveyCreate, user_id: int):
     """
     创建一份新的问卷。
     如果提供了question_ids，则创建调研与题目的关联关系。
     """
-    from backend.app.models.survey_question import SurveyQuestion
-
     db_survey = SurveyModel(
         title=survey.title,  # 使用survey.title，因为schema中定义的是title字段
         description=survey.description,
@@ -38,13 +90,18 @@ def get_survey(db: Session, survey_id: int):
     """
     根据 ID 获取问卷。
     """
-    return db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    if survey:
+        _normalize_status(db, survey)
+        _attach_counts(db, [survey])
+    return survey
 
 def get_surveys_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 100):
     """
     获取某个用户创建的所有问卷。
     """
-    return db.query(SurveyModel).filter(SurveyModel.created_by_user_id == user_id).offset(skip).limit(limit).all()
+    surveys = db.query(SurveyModel).filter(SurveyModel.created_by_user_id == user_id).offset(skip).limit(limit).all()
+    return _enrich_surveys(db, surveys)
 
 def get_global_surveys(db: Session, skip: int = 0, limit: int = 100, search: str = None, status_filter: str = None, sort_by: str = None):
     """
@@ -75,7 +132,8 @@ def get_global_surveys(db: Session, skip: int = 0, limit: int = 100, search: str
         # 默认按创建时间降序
         query = query.order_by(SurveyModel.created_at.desc())
     
-    return query.offset(skip).limit(limit).all()
+    surveys = query.offset(skip).limit(limit).all()
+    return _enrich_surveys(db, surveys)
 
 def update_survey(db: Session, survey_id: int, survey_update: SurveyUpdate):
     """
@@ -137,7 +195,6 @@ def get_survey_questions(db: Session, survey_id: int):
     """
     获取调研的题目列表
     """
-    from backend.app.models.survey_question import SurveyQuestion
     from backend.app.models.question import Question
     
     # 首先检查调研是否存在
@@ -175,3 +232,25 @@ def get_survey_questions(db: Session, survey_id: int):
             })
     
     return questions
+
+def update_survey_status(db: Session, survey_id: int, status: str, end_time: Optional[datetime.datetime] = None, start_time: Optional[datetime.datetime] = None):
+    survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    if not survey:
+        return None
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    survey.status = status
+
+    if status == 'active':
+        survey.start_time = start_time or survey.start_time or now
+        survey.end_time = end_time
+    elif status == 'completed':
+        survey.end_time = end_time or survey.end_time or now
+    elif status == 'pending':
+        survey.start_time = start_time
+        survey.end_time = end_time
+
+    db.add(survey)
+    db.commit()
+    db.refresh(survey)
+    return survey

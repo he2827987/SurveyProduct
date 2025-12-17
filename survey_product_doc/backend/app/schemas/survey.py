@@ -37,6 +37,11 @@ class SurveyUpdate(BaseModel):
         }
 
 # 用于返回问卷信息的响应体
+class SurveyStatusUpdate(BaseModel):
+    status: str = Field(..., description="问卷状态: pending/active/completed")
+    end_time: Optional[datetime] = Field(None, description="问卷结束时间")
+    start_time: Optional[datetime] = Field(None, description="问卷开始时间")
+
 class SurveyResponse(BaseModel):
     id: int
     title: str
@@ -47,6 +52,10 @@ class SurveyResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] # updated_at 可能是 None，直到第一次更新
     questions: Optional[list] = None  # 关联的题目列表（通过中间表获取）
+    question_count: int = 0
+    response_count: int = 0
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
 
     class Config:
         from_attributes = True # 兼容 SQLAlchemy 模型

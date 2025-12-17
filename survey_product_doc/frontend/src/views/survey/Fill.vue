@@ -67,7 +67,7 @@
               />
             </el-select>
           </el-form-item>
-
+          
           <el-form-item label="部门" prop="department">
             <el-select 
               v-model="respondentInfo.department"

@@ -150,6 +150,10 @@ export function getSurveyResponses(surveyId, params = {}) {
   return request.get(`/surveys/${surveyId}/responses`, { params })
 }
 
+export function updateSurveyStatus(surveyId, statusData) {
+  return request.post(`/surveys/${surveyId}/status`, statusData)
+}
+
 // ===== 调研统计和分析API =====
 
 /**

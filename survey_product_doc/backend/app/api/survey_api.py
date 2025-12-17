@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, cast
 
 from backend.app.api.deps import get_db
-from backend.app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse
+from backend.app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse, SurveyStatusUpdate
 from backend.app import crud
 from backend.app.security import get_current_user
 from backend.app.services import survey_service
@@ -108,6 +108,33 @@ def update_survey(
 
     updated_survey = survey_service.update_survey(db=db, survey_id=survey_id, survey_update=survey_update)
     return updated_survey
+
+
+@router.post("/{survey_id}/status", response_model=SurveyResponse)
+def update_survey_status(
+    survey_id: int,
+    status_update: SurveyStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    db_survey = survey_service.get_survey(db=db, survey_id=survey_id)
+    if not db_survey:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="问卷未找到")
+    if cast(int, db_survey.created_by_user_id) != cast(int, current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权更新该问卷状态")
+
+    survey_service.update_survey_status(
+        db=db,
+        survey_id=survey_id,
+        status=status_update.status,
+        end_time=status_update.end_time,
+        start_time=status_update.start_time
+    )
+
+    updated = survey_service.get_survey(db=db, survey_id=survey_id)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="问卷未找到")
+    return updated
 
 @router.delete("/{survey_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_survey(

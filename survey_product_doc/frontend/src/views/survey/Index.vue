@@ -66,8 +66,8 @@
               </template>
             </el-table-column>
             
-            <el-table-column prop="questionCount" label="题目数量" width="100" align="center"></el-table-column>
-            <el-table-column prop="responseCount" label="回复数量" width="100" align="center"></el-table-column>
+        <el-table-column prop="question_count" label="题目数量" width="100" align="center"></el-table-column>
+        <el-table-column prop="response_count" label="回复数量" width="100" align="center"></el-table-column>
             <el-table-column prop="createdAt" label="创建时间" width="160"></el-table-column>
             
             <!-- 操作列：提供查看、生成二维码、数据分析、删除等操作 -->
@@ -479,8 +479,8 @@ const fetchSurveys = async () => {
         title: survey.title,
         description: survey.description || '',
         status: survey.status || 'pending',
-        questionCount: survey.questions?.length || 0,
-        responseCount: survey.answers?.length || 0,
+        question_count: survey.question_count ?? (survey.questions?.length || 0),
+        response_count: survey.response_count ?? (survey.answers?.length || 0),
         createdAt: survey.created_at,
         created_by_user_id: survey.created_by_user_id,
         // 判断当前用户是否是创建者
@@ -670,7 +670,7 @@ const generateQrCode = (survey) => {
   qrDialog.value.title = survey.title
   qrDialog.value.surveyId = survey.id
   qrDialog.value.description = survey.description || ''
-  qrDialog.value.responseCount = survey.responseCount || 0
+  qrDialog.value.responseCount = survey.response_count || 0
   qrDialog.value.visible = true
 }
 
@@ -687,7 +687,7 @@ const downloadQrCode = () => {
  * @param {Object} survey - 调研对象
  */
 const viewAnalysis = (survey) => {
-  router.push(`/data-analysis?id=${survey.id}`)
+  router.push(`/analysis?id=${survey.id}`)
 }
 
 /**
