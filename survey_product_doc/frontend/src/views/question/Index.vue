@@ -20,12 +20,22 @@
           当前分类：{{ selectedCategoryLabel }}
         </div>
         
-        <el-input
-          v-model="categoryFilter"
-          placeholder="搜索分类"
-          clearable
-          class="filter-input"
-        />
+        <div class="category-search-row">
+          <el-input
+            v-model="categoryFilter"
+            placeholder="搜索分类"
+            clearable
+            class="filter-input"
+          />
+          <el-tooltip content="清除选中分类" placement="top">
+            <el-button 
+              :icon="RefreshLeft" 
+              @click="clearCategorySelection" 
+              :disabled="!selectedCategoryId"
+              circle
+            />
+          </el-tooltip>
+        </div>
         
         <el-tree
           ref="categoryTreeRef"
@@ -768,7 +778,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Edit, Search, DocumentCopy, Download, Rank, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, Delete, Edit, Search, DocumentCopy, Download, Rank, ArrowUp, ArrowDown, RefreshLeft } from '@element-plus/icons-vue'
 import { createGlobalQuestion, getGlobalQuestions, updateQuestion, deleteQuestion, getQuestionCategoryTree, createQuestionCategory, updateQuestionCategory, deleteQuestionCategory, getQuestionTags, createQuestionTag, deleteQuestionTag } from '@/api/question'
 
 // 分类树数据
@@ -1037,6 +1047,17 @@ onMounted(() => {
 const filterCategory = (value, data) => {
   if (!value) return true
   return data.name.includes(value)
+}
+
+// 清除分类选择
+const clearCategorySelection = () => {
+  selectedCategoryId.value = null
+  selectedCategoryLabel.value = '全部'
+  if (categoryTreeRef.value) {
+    categoryTreeRef.value.setCurrentKey(null)
+  }
+  currentPage.value = 1
+  fetchQuestions()
 }
 
 // 点击分类
@@ -1768,6 +1789,12 @@ const mapQuestionTypeForApi = (uiType) => {
 }
 
 .filter-input {
+  flex: 1;
+}
+
+.category-search-row {
+  display: flex;
+  gap: 8px;
   margin-bottom: 15px;
 }
 
