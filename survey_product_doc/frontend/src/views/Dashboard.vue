@@ -75,37 +75,20 @@
       <el-row :gutter="20">
         <el-col :xs="24" :sm="12" :md="8" v-for="entry in quickEntries" :key="entry.path">
           <el-card shadow="hover" class="entry-card" @click="goTo(entry.path)">
-            <div class="entry-icon">
-              <el-icon><component :is="entry.icon" /></el-icon>
+            <div class="entry-row">
+              <div class="entry-icon">
+                <el-icon><component :is="entry.icon" /></el-icon>
+              </div>
+              <div class="entry-content">
+                <div class="entry-title">{{ entry.title }}</div>
+                <div class="entry-desc">{{ entry.description }}</div>
+              </div>
             </div>
-            <div class="entry-title">{{ entry.title }}</div>
-            <div class="entry-desc">{{ entry.description }}</div>
           </el-card>
         </el-col>
       </el-row>
     </div>
     
-    <!-- 简易概览图表 -->
-
-    <!-- 简易概览图表 -->
-    <el-row :gutter="20">
-      <el-col :xs="24" :sm="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
-          <div class="chart-header">
-            <div class="chart-title">问卷完成率</div>
-            <el-tag type="success" size="small">本月</el-tag>
-          </div>
-          <div class="chart-body">
-            <el-progress type="dashboard" :percentage="72" :stroke-width="10" color="#409EFF" />
-            <div class="chart-legend">
-              <span class="dot primary"></span> 已完成 72%
-              <span class="dot muted"></span> 进行中 18%
-              <span class="dot warning"></span> 未开始 10%
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
     <!-- 最近调研 -->
     <div class="card recent-surveys">
       <div class="flex-between">
@@ -346,12 +329,14 @@ const viewAnalysis = (id) => {
   margin-bottom: 20px;
   cursor: pointer;
   padding: 12px;
-  height: 140px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  height: 120px;
   transition: all 0.3s;
+}
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
 }
 
 .entry-card:hover {
@@ -361,8 +346,12 @@ const viewAnalysis = (id) => {
 
 .entry-icon {
   font-size: 28px;
-  margin-bottom: 10px;
   color: #409EFF;
+}
+
+.entry-content {
+  display: flex;
+  flex-direction: column;
 }
 
 .entry-title {
