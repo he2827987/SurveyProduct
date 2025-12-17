@@ -58,16 +58,9 @@
                 <el-button type="primary" link @click="editDepartment(data)">
                   编辑
                 </el-button>
-                <el-popconfirm
-                  title="确定要删除该部门吗？删除后将无法恢复，且会同时删除所有子部门。"
-                  confirm-button-text="确定"
-                  cancel-button-text="取消"
-                  @confirm="removeDepartment(node, data)"
-                >
-                  <template #reference>
-                    <el-button type="danger" link>删除</el-button>
-                  </template>
-                </el-popconfirm>
+                <el-button type="danger" link @click.stop="removeDepartment(node, data)">
+                  删除
+                </el-button>
               </div>
             </div>
           </template>
@@ -252,7 +245,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { FolderOpened, OfficeBuilding, Search, User, Phone, Message } from '@element-plus/icons-vue'
 
 // 部门树的搜索过滤
@@ -559,6 +552,16 @@ const saveDepartment = async () => {
 // 删除部门
 const removeDepartment = async (node, data) => {
   try {
+    await ElMessageBox.confirm(
+      '确定要删除该部门吗？删除后将无法恢复，且会同时删除所有子部门。',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
     // 模拟API调用
     await new Promise(resolve => setTimeout(resolve, 1000))
     
@@ -570,8 +573,10 @@ const removeDepartment = async (node, data) => {
       currentDept.value = {}
     }
   } catch (error) {
-    console.error('删除部门失败:', error)
-    ElMessage.error('删除部门失败')
+    if (error !== 'cancel') {
+      console.error('删除部门失败:', error)
+      ElMessage.error('删除部门失败')
+    }
   }
 }
 
