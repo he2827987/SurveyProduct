@@ -244,9 +244,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { FolderOpened, OfficeBuilding, Search, User, Phone, Message } from '@element-plus/icons-vue'
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment as deleteDepartmentApi } from '@/api/organization'
+
+// 当前组织ID，这里暂时硬编码为1，实际项目中应从用户信息或路由参数获取
+const currentOrgId = ref(1)
 
 // 部门树的搜索过滤
 const filterText = ref('')
@@ -258,85 +262,49 @@ const treeKey = ref(0) // 用于强制重新渲染树组件
 const currentDept = ref({})
 
 // 部门树数据
-const departments = ref([
-  {
-    id: 1,
-    name: '总公司',
-    code: 'HQ',
-    employeeCount: 120,
-    createdAt: '2023-01-01',
-    children: [
-      {
-        id: 2,
-        name: '研发部',
-        code: 'RD',
-        employeeCount: 45,
-        createdAt: '2023-01-02',
-        children: [
-          {
-            id: 5,
-            name: '前端组',
-            code: 'FE',
-            employeeCount: 12,
-            createdAt: '2023-01-05'
-          },
-          {
-            id: 6,
-            name: '后端组',
-            code: 'BE',
-            employeeCount: 15,
-            createdAt: '2023-01-05'
-          },
-          {
-            id: 7,
-            name: '测试组',
-            code: 'QA',
-            employeeCount: 8,
-            createdAt: '2023-01-05'
-          },
-          {
-            id: 8,
-            name: '运维组',
-            code: 'OPS',
-            employeeCount: 10,
-            createdAt: '2023-01-05'
-          }
-        ]
-      },
-      {
-        id: 3,
-        name: '市场部',
-        code: 'MKT',
-        employeeCount: 30,
-        createdAt: '2023-01-03',
-        children: [
-          {
-            id: 9,
-            name: '国内市场组',
-            code: 'MKT-CN',
-            employeeCount: 18,
-            createdAt: '2023-01-10'
-          },
-          {
-            id: 10,
-            name: '国际市场组',
-            code: 'MKT-INT',
-            employeeCount: 12,
-            createdAt: '2023-01-10'
-          }
-        ]
-      },
-      {
-        id: 4,
-        name: '财务部',
-        code: 'FIN',
-        employeeCount: 15,
-        createdAt: '2023-01-04',
-        children: []
-      }
-    ]
+const departments = ref([])
+
+// 获取部门列表
+const fetchDepartments = async () => {
+  try {
+    const response = await getDepartments(currentOrgId.value)
+    // 后端返回的是平铺列表，需要转换为树形结构
+    if (Array.isArray(response)) {
+      departments.value = buildTree(response)
+    } else {
+      departments.value = []
+    }
+  } catch (error) {
+    console.error('获取部门列表失败:', error)
+    ElMessage.error('获取部门列表失败')
   }
-])
+}
+
+// 构建树形结构
+const buildTree = (items) => {
+  const result = []
+  const itemMap = {}
+  
+  // 先把所有项放入 map，并初始化 children
+  for (const item of items) {
+    itemMap[item.id] = { ...item, children: [] }
+  }
+  
+  for (const item of items) {
+    const treeItem = itemMap[item.id]
+    if (item.parent_id && itemMap[item.parent_id]) {
+      itemMap[item.parent_id].children.push(treeItem)
+    } else {
+      result.push(treeItem)
+    }
+  }
+  
+  return result
+}
+
+onMounted(() => {
+  fetchDepartments()
+})
 
 // 树节点配置
 const defaultProps = {
@@ -514,39 +482,40 @@ const editDepartment = (dept) => {
 
 // 保存部门
 const saveDepartment = async () => {
-  try {
-    deptDialog.value.loading = true
+  deptFormRef.value.validate(async (valid) => {
+    if (!valid) return
     
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    if (deptDialog.value.isEdit) {
-      // 更新部门
-      updateDepartmentInTree(deptForm.value)
-      ElMessage.success('部门更新成功')
-    } else {
-      // 创建部门
-      const newDept = {
-        id: Date.now(),
+    try {
+      deptDialog.value.loading = true
+      
+      const payload = {
         name: deptForm.value.name,
         code: deptForm.value.code,
-        employeeCount: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-        remark: deptForm.value.remark,
-        children: []
+        parent_id: deptForm.value.parentId,
+        description: deptForm.value.remark // 后端字段名为 description
       }
       
-      addDepartmentToTree(newDept, deptForm.value.parentId)
-      ElMessage.success('部门创建成功')
+      if (deptDialog.value.isEdit) {
+        // 更新部门
+        await updateDepartment(currentOrgId.value, deptForm.value.id, payload)
+        ElMessage.success('部门更新成功')
+      } else {
+        // 创建部门
+        await createDepartment(currentOrgId.value, payload)
+        ElMessage.success('部门创建成功')
+      }
+      
+      deptDialog.value.visible = false
+      // 重新获取列表
+      fetchDepartments()
+    } catch (error) {
+      console.error('保存部门失败:', error)
+      const errorMsg = error.response?.data?.detail || error.message || '保存部门失败'
+      ElMessage.error(errorMsg)
+    } finally {
+      deptDialog.value.loading = false
     }
-    
-    deptDialog.value.visible = false
-  } catch (error) {
-    console.error('保存部门失败:', error)
-    ElMessage.error('保存部门失败')
-  } finally {
-    deptDialog.value.loading = false
-  }
+  })
 }
 
 // 删除部门
@@ -562,20 +531,22 @@ const removeDepartment = async (node, data) => {
       }
     )
 
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await deleteDepartmentApi(currentOrgId.value, data.id)
     
-    removeDepartmentFromTree(data.id)
     ElMessage.success('部门删除成功')
     
     // 如果删除的是当前选中的部门，清空选中状态
     if (currentDept.value.id === data.id) {
       currentDept.value = {}
     }
+    
+    // 重新获取列表
+    fetchDepartments()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除部门失败:', error)
-      ElMessage.error('删除部门失败')
+      const errorMsg = error.response?.data?.detail || error.message || '删除部门失败'
+      ElMessage.error(errorMsg)
     }
   }
 }
