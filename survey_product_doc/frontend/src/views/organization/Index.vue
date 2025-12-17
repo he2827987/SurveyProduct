@@ -247,10 +247,10 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { FolderOpened, OfficeBuilding, Search, User, Phone, Message } from '@element-plus/icons-vue'
-import { getDepartments, createDepartment, updateDepartment, deleteDepartment as deleteDepartmentApi } from '@/api/organization'
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment as deleteDepartmentApi, getOrganizations } from '@/api/organization'
 
-// 当前组织ID，这里暂时硬编码为1，实际项目中应从用户信息或路由参数获取
-const currentOrgId = ref(1)
+// 当前组织ID
+const currentOrgId = ref(null)
 
 // 部门树的搜索过滤
 const filterText = ref('')
@@ -264,8 +264,31 @@ const currentDept = ref({})
 // 部门树数据
 const departments = ref([])
 
+// 获取当前用户有权限的组织，并初始化部门树
+const initOrganization = async () => {
+  try {
+    // 获取组织列表
+    const res = await getOrganizations({ limit: 100 })
+    const orgs = res?.items || res || []
+    
+    if (orgs.length > 0) {
+      // 默认选择第一个组织
+      currentOrgId.value = orgs[0].id
+      await fetchDepartments()
+    } else {
+      ElMessage.warning('暂无组织，请先创建或加入一个组织')
+      departments.value = []
+    }
+  } catch (error) {
+    console.error('获取组织列表失败:', error)
+    ElMessage.error('获取组织信息失败')
+  }
+}
+
 // 获取部门列表
 const fetchDepartments = async () => {
+  if (!currentOrgId.value) return
+  
   try {
     const response = await getDepartments(currentOrgId.value)
     // 后端返回的是平铺列表，需要转换为树形结构
@@ -303,7 +326,7 @@ const buildTree = (items) => {
 }
 
 onMounted(() => {
-  fetchDepartments()
+  initOrganization()
 })
 
 // 树节点配置
