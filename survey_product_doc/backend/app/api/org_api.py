@@ -16,7 +16,7 @@ router = APIRouter()
 async def create_organization(
     org_in: schemas.OrganizationCreate,
     db: Session = Depends(deps.get_db),
-    # current_user: models.User = Depends(deps.get_current_active_user), # 暂时跳过用户认证
+    current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     **创建新组织。**
@@ -24,10 +24,8 @@ async def create_organization(
     - 允许普通用户创建组织。
     - `name` 必须是唯一的。
     """
-    print(f"Creating organization: {org_in.name}")
-    # 使用固定的用户ID
-    current_user_id = 3  # admin用户的ID
-    print(f"Using fixed user ID: {current_user_id}")
+    # 使用当前登录用户作为组织拥有者
+    current_user_id = cast(int, current_user.id)
     
     organization = crud.get_organization_by_name(db, name=org_in.name)
     if organization:
@@ -37,7 +35,6 @@ async def create_organization(
         )
     
     organization = crud.create_organization(db, org=org_in, owner_id=current_user_id)
-    print(f"Organization created: {organization.id}")
     
     # 自动将创建者添加为组织的 "owner" 角色成员
     member_data = schemas.OrganizationMemberCreate(
@@ -45,7 +42,6 @@ async def create_organization(
         user_id=current_user_id,
         role="owner" # 创建者默认为组织所有者
     )
-    print(f"Creating member: {member_data}")
     crud.create_organization_member(db, member_data)
     
     return organization

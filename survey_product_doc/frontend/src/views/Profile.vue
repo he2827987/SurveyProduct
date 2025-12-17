@@ -211,14 +211,23 @@ const saveProfile = async () => {
       email: profileForm.value.email
     }
 
-    // 处理组织：如果填写了组织名称，尝试匹配已有组织；否则创建
+    // 处理组织：如果填写了组织名称，先查用户可见组织；未找到则创建
     const orgName = (profileForm.value.organizationName || '').trim()
     if (orgName) {
       let orgId = null
       try {
-        const res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
-        const orgList = res?.items || res || []
-        const matched = orgList.find((o) => o.name === orgName)
+        // 优先使用用户可访问的组织列表
+        let res = await organizationAPI.getOrganizations({ skip: 0, limit: 200 })
+        let orgList = res?.items || res || []
+        let matched = orgList.find((o) => o.name === orgName)
+
+        // 如未匹配，再查公开组织
+        if (!matched) {
+          res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
+          orgList = res?.items || res || []
+          matched = orgList.find((o) => o.name === orgName)
+        }
+
         if (matched) {
           orgId = matched.id
         } else {
