@@ -13,6 +13,9 @@
         <el-button type="success" @click="generateQrCode" v-if="survey.status !== 'completed'">
           生成二维码
         </el-button>
+        <el-button type="primary" @click="openSubjectiveDetailAnswers">
+          详细答案
+        </el-button>
         <el-button type="warning" @click="viewAnalysis">
           数据分析
         </el-button>
@@ -155,6 +158,12 @@
         :response-count="qrDialog.responseCount"
       />
     </el-dialog>
+
+    <SubjectiveAnswersDialog
+      v-model:visible="subjectiveDialog.visible"
+      :survey-id="subjectiveDialog.surveyId"
+      :title="subjectiveDialog.title"
+    />
   </div>
 </template>
 
@@ -164,6 +173,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElSkeleton, ElResult } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import QRCodeGenerator from '@/components/QRCodeGenerator.vue'
+import SubjectiveAnswersDialog from '@/components/SubjectiveAnswersDialog.vue'
 import * as surveyApi from '@/api/survey'
 
 const route = useRoute()
@@ -178,6 +188,11 @@ const qrDialog = ref({
   surveyId: null,
   description: '',
   responseCount: 0
+})
+const subjectiveDialog = ref({
+  visible: false,
+  surveyId: null,
+  title: ''
 })
 
 // 页面加载时获取调研详情
@@ -229,6 +244,14 @@ const generateQrCode = () => {
 // 查看数据分析
 const viewAnalysis = () => {
   router.push(`/analysis?id=${survey.value.id}`)
+}
+
+const openSubjectiveDetailAnswers = () => {
+  subjectiveDialog.value = {
+    visible: true,
+    surveyId: survey.value.id,
+    title: survey.value.title
+  }
 }
 
 // 获取状态类型

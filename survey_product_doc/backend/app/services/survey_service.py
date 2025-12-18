@@ -1,11 +1,13 @@
 # backend/app/services/survey_service.py
 
 from typing import Optional
+import json
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from backend.app.models.answer import SurveyAnswer
+from backend.app.models.question import Question as QuestionModel, QuestionType
 from backend.app.models.survey import Survey as SurveyModel
 from backend.app.models.survey_question import SurveyQuestion
-from backend.app.models.answer import SurveyAnswer
 from backend.app.schemas.survey import SurveyCreate, SurveyUpdate
 import datetime
 
@@ -58,6 +60,95 @@ def _enrich_surveys(db: Session, surveys: list[SurveyModel]):
         _normalize_status(db, survey)
     _attach_counts(db, surveys)
     return surveys
+
+def get_subjective_answers(
+    db: Session,
+    survey_id: int,
+    question_id: Optional[int] = None,
+    question_number: Optional[int] = None,
+    question_text: Optional[str] = None,
+    department: Optional[str] = None
+) -> list[dict]:
+    answers = db.query(SurveyAnswer).filter(SurveyAnswer.survey_id == survey_id).order_by(SurveyAnswer.submitted_at.desc()).all()
+    if not answers:
+        return []
+
+    question_orders = {
+        sq.question_id: sq.order
+        for sq in db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey_id).all()
+    }
+
+    question_ids = set()
+    for ans in answers:
+        try:
+            answer_map = json.loads(ans.answers)
+        except Exception:
+            continue
+        for key in answer_map.keys():
+            try:
+                question_ids.add(int(key))
+            except ValueError:
+                continue
+
+    questions = db.query(QuestionModel).filter(QuestionModel.id.in_(question_ids)).all() if question_ids else []
+    question_map = {q.id: q for q in questions}
+
+    result = []
+    subject_types = {QuestionType.TEXT_INPUT.value, QuestionType.NUMBER_INPUT.value}
+
+    for ans in answers:
+        try:
+            answer_map = json.loads(ans.answers)
+        except Exception:
+            continue
+
+        for qid_raw, value in answer_map.items():
+            try:
+                qid = int(qid_raw)
+            except (TypeError, ValueError):
+                continue
+
+            question = question_map.get(qid)
+            if not question or question.type.value not in subject_types:
+                continue
+
+            answer_text = value
+            if isinstance(answer_text, list):
+                answer_text = ', '.join(str(item) for item in answer_text)
+            elif answer_text is None:
+                answer_text = ''
+            else:
+                answer_text = str(answer_text)
+
+            if question_id and qid != question_id:
+                continue
+            if question_number and question_orders.get(qid) != question_number:
+                continue
+            if question_text and question_text.lower() not in question.text.lower():
+                continue
+            if department and department.strip():
+                dept_value = (ans.department or '').lower()
+                if department.strip().lower() not in dept_value:
+                    continue
+
+            respondent_name = None
+            if ans.user:
+                respondent_name = ans.user.username
+            elif ans.participant:
+                respondent_name = ans.participant.name
+
+            result.append({
+                "answer_id": ans.id,
+                "question_id": qid,
+                "question_number": question_orders.get(qid),
+                "question_text": question.text,
+                "answer_text": answer_text,
+                "department": ans.department,
+                "respondent_name": respondent_name,
+                "submitted_at": ans.submitted_at
+            })
+
+    return result
 
 def create_survey(db: Session, survey: SurveyCreate, user_id: int):
     """

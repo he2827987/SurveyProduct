@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, cast
 
 from backend.app.api.deps import get_db
-from backend.app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse, SurveyStatusUpdate
+from backend.app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse, SurveyStatusUpdate, SubjectiveAnswerDetail
 from backend.app import crud
 from backend.app.security import get_current_user
 from backend.app.services import survey_service
@@ -193,6 +193,35 @@ def get_survey_questions(survey_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="调研题目未找到")
     
     return questions
+
+
+@router.get("/{survey_id}/subjective-answers", response_model=List[SubjectiveAnswerDetail])
+def get_subjective_answers(
+    survey_id: int,
+    question_id: Optional[int] = None,
+    question_number: Optional[int] = None,
+    question_text: Optional[str] = None,
+    department: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    survey = crud.get_survey(db, survey_id=survey_id)
+    if not survey:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="问卷未找到")
+
+    if survey.organization_id and current_user.organization_id != survey.organization_id and cast(int, survey.created_by_user_id) != cast(int, current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只能查看所属组织的主观答案")
+
+    answers = survey_service.get_subjective_answers(
+        db=db,
+        survey_id=survey_id,
+        question_id=question_id,
+        question_number=question_number,
+        question_text=question_text,
+        department=department
+    )
+
+    return answers
 
 @router.get("/{survey_id}/detail")
 def get_survey_detail(survey_id: int, db: Session = Depends(get_db)):

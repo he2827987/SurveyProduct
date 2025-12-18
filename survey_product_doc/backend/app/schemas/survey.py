@@ -42,6 +42,19 @@ class SurveyStatusUpdate(BaseModel):
     end_time: Optional[datetime] = Field(None, description="问卷结束时间")
     start_time: Optional[datetime] = Field(None, description="问卷开始时间")
 
+class SubjectiveAnswerDetail(BaseModel):
+    answer_id: int
+    question_id: int
+    question_number: Optional[int]
+    question_text: str
+    answer_text: str
+    department: Optional[str] = None
+    respondent_name: Optional[str] = None
+    submitted_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class SurveyResponse(BaseModel):
     id: int
     title: str
