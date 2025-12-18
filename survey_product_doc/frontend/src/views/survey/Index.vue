@@ -93,6 +93,11 @@
                   数据分析
                 </el-button>
                 
+                <!-- 详细答案 -->
+                <el-button type="primary" link @click="router.push(`/survey/${scope.row.id}/subjective-answers`)">
+                  详细答案
+                </el-button>
+                
                 <!-- 主观答案 -->
                 <el-button type="primary" link @click="openSubjectiveAnswers(scope.row)">
                   详细答案

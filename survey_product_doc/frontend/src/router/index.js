@@ -74,6 +74,12 @@ const routes = [
         component: () => import('@/views/compare/Index.vue'),
         meta: { title: '企业对比', requiresAuth: true }
       },
+      {
+        path: 'survey/:id/subjective-answers',
+        name: 'SubjectiveAnswers',
+        component: () => import('@/views/survey/SubjectiveAnswers.vue'),
+        meta: { title: '主观题详情', requiresAuth: true }
+      },
 
       {
         path: 'profile',
