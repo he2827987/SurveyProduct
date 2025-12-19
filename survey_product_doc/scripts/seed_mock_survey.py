@@ -174,9 +174,10 @@ def clear_existing_data(session):
 def create_questions(session) -> Dict[str, Question]:
     question_map: Dict[str, Question] = {}
     for order, q_def in enumerate(QUESTION_DEFS, start=1):
+        question_type_value = q_def["type"].value if isinstance(q_def["type"], QuestionType) else q_def["type"]
         question = Question(
             text=q_def["text"],
-            type=q_def["type"],
+            type=question_type_value,
             options=json.dumps(q_def.get("options"), ensure_ascii=False) if q_def.get("options") else None,
             category_id=None,
             is_required=False,
