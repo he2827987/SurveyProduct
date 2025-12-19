@@ -169,6 +169,30 @@ def log_question_schema(session):
     print("Current TYPE values:", [row[0] for row in types])
 
 
+def cleanup_invalid_surveys(session):
+    print("Checking for surveys without any questions...")
+    invalid_surveys = (
+        session.query(Survey)
+        .outerjoin(SurveyQuestion)
+        .group_by(Survey.id)
+        .having(func.count(SurveyQuestion.id) == 0)
+        .all()
+    )
+    if not invalid_surveys:
+        print("All surveys have questions.")
+        return
+
+    ids = [survey.id for survey in invalid_surveys]
+    print(f"Found {len(ids)} surveys without questions: {ids}")
+
+    session.query(SurveyAnswer).filter(SurveyAnswer.survey_id.in_(ids)).delete(synchronize_session=False)
+    session.query(SurveyQuestion).filter(SurveyQuestion.survey_id.in_(ids)).delete(synchronize_session=False)
+    for survey in invalid_surveys:
+        session.delete(survey)
+    session.commit()
+    print(f"Deleted {len(ids)} empty surveys.")
+
+
 def clear_existing_data(session):
     existing_survey = session.query(Survey).filter(Survey.title == SURVEY_TITLE).first()
     if existing_survey:
@@ -313,6 +337,7 @@ def main():
     session = SessionLocal()
     try:
         log_question_schema(session)
+        cleanup_invalid_surveys(session)
         organizations = load_active_organizations(session)
         if not organizations:
             print("未找到可用组织，请先创建组织后再运行脚本。")
