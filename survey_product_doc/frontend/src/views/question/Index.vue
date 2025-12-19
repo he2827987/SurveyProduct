@@ -1450,16 +1450,29 @@ const moveOptionDown = (index) => {
   }
 }
 
-// 可用的父题目列表（排除当前题目和已经是关联题的题目）
+const questionHasSelectableOptions = (question) => {
+  if (!question || !question.options) return false
+  let opts = question.options
+
+  if (typeof opts === 'string') {
+    try {
+      opts = JSON.parse(opts)
+    } catch (error) {
+      console.warn('解析题目选项失败:', error)
+      return false
+    }
+  }
+
+  return Array.isArray(opts) && opts.length > 0
+}
+
+// 可用的父题目列表（排除当前题目）
 const availableParentQuestions = computed(() => {
   return questionList.value.filter(q => {
-    // 排除当前编辑的题目
     if (questionForm.value.id && q.id === questionForm.value.id) {
       return false
     }
-    // 只显示选择题类型的题目作为父题目（因为需要选项来触发）
-    const qType = mapQuestionTypeForUI(q.type)
-    return qType === 'single' || qType === 'multiple'
+    return questionHasSelectableOptions(q)
   })
 })
 
@@ -1527,14 +1540,21 @@ const saveQuestion = () => {
         
         // 4. 处理关联题字段
         // 将trigger_options转换为后端需要的格式：[{"option_text": "选项A"}]
-        if (payload.trigger_options && Array.isArray(payload.trigger_options)) {
-          payload.trigger_options = payload.trigger_options.map(opt => ({
+        const normalizedTriggerOptions = Array.isArray(payload.trigger_options)
+          ? payload.trigger_options.filter(
+              opt => opt !== null && opt !== undefined && opt !== ''
+            )
+          : []
+
+        if (normalizedTriggerOptions.length > 0) {
+          payload.trigger_options = normalizedTriggerOptions.map(opt => ({
             option_text: opt
           }))
-        } else if (!payload.parent_question_id) {
-          // 如果没有父题目，清空trigger_options
+        } else {
           payload.trigger_options = null
-          payload.parent_question_id = null
+          if (!payload.parent_question_id) {
+            payload.parent_question_id = null
+          }
         }
         
         // 5. 确保 survey_id 为 null 表示存入全局题库
