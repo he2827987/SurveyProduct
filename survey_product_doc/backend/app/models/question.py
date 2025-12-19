@@ -43,7 +43,13 @@ class Question(Base):
     # ===== 基础字段 =====
     id = Column(Integer, primary_key=True, index=True)
     text = Column(Text, nullable=False)  # 问题文本内容
-    type = Column(Enum(QuestionType), nullable=False)  # 问题类型
+    type = Column(
+        Enum(
+            QuestionType,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+    )  # 问题类型
 
     # ===== 关联字段 =====
     # 问卷关联（通过中间表实现）
