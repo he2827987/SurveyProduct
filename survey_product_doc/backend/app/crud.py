@@ -633,6 +633,24 @@ def get_global_questions(db: Session, skip: int = 0, limit: int = 100, type_filt
                 # 如果解析失败，则设为空列表并记录日志
                 print(f"Warning: Could not decode options for question ID {question.id}. Options: {question.options}. Error: {decode_error}")
                 object.__setattr__(question, 'options', [])
+        # 处理 trigger_options 字段
+        if question.trigger_options:
+            if isinstance(question.trigger_options, str):
+                try:
+                    parsed = json.loads(question.trigger_options)
+                except json.JSONDecodeError as decode_error:
+                    print(f"Warning: Could not decode trigger_options for question ID {question.id}. Value: {question.trigger_options}. Error: {decode_error}")
+                    parsed = []
+            else:
+                parsed = question.trigger_options
+            # Ensure trigger_options is a list of dicts with option_text
+            normalized = []
+            for item in parsed or []:
+                if isinstance(item, dict) and "option_text" in item:
+                    normalized.append(item)
+                else:
+                    normalized.append({"option_text": item})
+            object.__setattr__(question, 'trigger_options', normalized)
         
         # 添加创建者用户名
         object.__setattr__(question, 'owner_name', owner_name)
