@@ -1,154 +1,311 @@
 import json
 import random
 from datetime import datetime
+from typing import Dict, List, Optional
+
 from backend.app.database import SessionLocal
 from backend.app.models.survey import Survey
 from backend.app.models.question import Question, QuestionType
 from backend.app.models.survey_question import SurveyQuestion
 from backend.app.models.answer import SurveyAnswer
 from backend.app.models.organization import Organization
+from backend.app.models.department import Department
 
-SURVEY_TITLE = "模拟问卷 - 全题型覆盖"
+SURVEY_TITLE = "测试问卷 - 全题型覆盖"
+SURVEY_DESCRIPTION = "用于验证各类题型与组织维度数据的模拟问卷"
 CREATED_BY_USER_ID = 2
-ANSWER_COUNT_PER_ORG = 25
+ANSWER_COUNT = 96
+POSITIONS = ["工程师", "人力资源", "运营专员", "产品经理", "销售代表", "财务"]
 
 QUESTION_DEFS = [
-    {"key": "single", "text": "Q1: 产品满意度", "type": QuestionType.SINGLE_CHOICE,
-     "options": [{"text": "非常满意", "score": 10}, {"text": "满意", "score": 8},
-                 {"text": "一般", "score": 5}, {"text": "不满意", "score": 2}]},
-    {"key": "multi", "text": "Q2: 期望的福利", "type": QuestionType.MULTI_CHOICE,
-     "options": [{"text": "薪资", "score": 4}, {"text": "保险", "score": 3},
-                 {"text": "弹性工作", "score": 2}, {"text": "培训", "score": 1}]},
-    {"key": "text", "text": "Q3: 对公司建议", "type": QuestionType.TEXT_INPUT, "options": None},
-    {"key": "number", "text": "Q4: 每周可投入加班小时", "type": QuestionType.NUMBER_INPUT, "options": None},
-    {"key": "sort", "text": "Q5: 优先事项排序", "type": QuestionType.SORT_ORDER,
-     "options": [{"text": "体验优化"}, {"text": "流程优化"}, {"text": "学习成长"}]},
-    {"key": "cond_parent", "text": "Q6: 是否愿意参与专项项目？", "type": QuestionType.SINGLE_CHOICE,
-     "options": [{"text": "愿意"}, {"text": "观望"}, {"text": "不参与"}]},
-    {"key": "cond_child1", "text": "Q7: 愿意的话想负责哪块", "type": QuestionType.CONDITIONAL,
-     "parent_key": "cond_parent", "trigger_options": ["愿意"]},
-    {"key": "cond_child2", "text": "Q8: 观望的原因是", "type": QuestionType.CONDITIONAL,
-     "parent_key": "cond_parent", "trigger_options": ["观望"]},
-    {"key": "text2", "text": "Q9: 目前的痛点", "type": QuestionType.TEXT_INPUT, "options": None},
-    {"key": "number2", "text": "Q10: 期望年收入范围", "type": QuestionType.NUMBER_INPUT, "options": None},
+    {
+        "key": "single_feedback",
+        "text": "Q1: 你对当前产品满意吗？",
+        "type": QuestionType.SINGLE_CHOICE,
+        "options": [
+            {"text": "非常满意", "score": 10},
+            {"text": "满意", "score": 8},
+            {"text": "一般", "score": 5},
+            {"text": "不满意", "score": 2}
+        ]
+    },
+    {
+        "key": "multi_expectation",
+        "text": "Q2: 你最看重哪些福利或资源？",
+        "type": QuestionType.MULTI_CHOICE,
+        "options": [
+            {"text": "薪资", "score": 4},
+            {"text": "培训", "score": 3},
+            {"text": "弹性工作", "score": 2},
+            {"text": "团队建设", "score": 1},
+            {"text": "AI工具支持", "score": 2}
+        ]
+    },
+    {
+        "key": "text_suggestion",
+        "text": "Q3: 你希望公司在哪些方面改进？",
+        "type": QuestionType.TEXT_INPUT,
+        "options": None
+    },
+    {
+        "key": "number_overtime",
+        "text": "Q4: 平均每周能投入多少小时加班？",
+        "type": QuestionType.NUMBER_INPUT,
+        "options": None,
+        "min_value": 0,
+        "max_value": 20
+    },
+    {
+        "key": "sort_priority",
+        "text": "Q5: 请对以下事项排序",
+        "type": QuestionType.SORT_ORDER,
+        "options": [
+            {"text": "用户体验优化"},
+            {"text": "内部流程改造"},
+            {"text": "能力提升"},
+            {"text": "新技术预研"}
+        ]
+    },
+    {
+        "key": "project_interest",
+        "text": "Q6: 是否愿意参与跨部门专项项目？",
+        "type": QuestionType.SINGLE_CHOICE,
+        "options": [
+            {"text": "愿意"},
+            {"text": "观望"},
+            {"text": "不参与"}
+        ]
+    },
+    {
+        "key": "project_area",
+        "text": "Q7: 愿意参与时希望负责的方向是？",
+        "type": QuestionType.CONDITIONAL,
+        "parent_key": "project_interest",
+        "trigger_options": ["愿意"]
+    },
+    {
+        "key": "project_reason",
+        "text": "Q8: 观望的原因是什么？",
+        "type": QuestionType.CONDITIONAL,
+        "parent_key": "project_interest",
+        "trigger_options": ["观望"]
+    },
+    {
+        "key": "project_refuse",
+        "text": "Q9: 不参与的顾虑是？",
+        "type": QuestionType.CONDITIONAL,
+        "parent_key": "project_interest",
+        "trigger_options": ["不参与"]
+    },
+    {
+        "key": "number_salary",
+        "text": "Q10: 期望的年薪区间（万元）",
+        "type": QuestionType.NUMBER_INPUT,
+        "options": None,
+        "min_value": 15,
+        "max_value": 40
+    },
+    {
+        "key": "ai_usage",
+        "text": "Q11: 你常用哪些AI工具？",
+        "type": QuestionType.MULTI_CHOICE,
+        "options": [
+            {"text": "ChatGPT", "score": 2},
+            {"text": "Copilot", "score": 2},
+            {"text": "文心一言", "score": 1},
+            {"text": "其他", "score": 1}
+        ]
+    },
+    {
+        "key": "ai_tool_detail",
+        "text": "Q12: 关于AI工具使用的具体经验",
+        "type": QuestionType.CONDITIONAL,
+        "parent_key": "ai_usage",
+        "trigger_options": ["ChatGPT", "Copilot", "文心一言", "其他"]
+    }
 ]
 
 
-ndef build_option_map(opts):
-    if not opts:
+def build_option_score_map(options: Optional[List[Dict[str, int]]]) -> Dict[str, int]:
+    if not options:
         return {}
-    return {o["text"]: o.get("score", 0) for o in opts}
+    return {opt["text"]: opt.get("score", 0) for opt in options}
 
 
-def calc_score_for_answer(q_def, ans_value):
+def calc_score(q_def: Dict, answer_value) -> int:
     if q_def["type"] == QuestionType.SINGLE_CHOICE:
-        opt_map = build_option_map(q_def.get("options"))
-        return opt_map.get(ans_value, 0)
-    if q_def["type"] == QuestionType.MULTI_CHOICE:
-        opt_map = build_option_map(q_def.get("options"))
-        if isinstance(ans_value, list):
-            return sum(opt_map.get(v, 0) for v in ans_value)
+        return build_option_score_map(q_def.get("options")).get(answer_value, 0)
+    if q_def["type"] == QuestionType.MULTI_CHOICE and isinstance(answer_value, list):
+        score_map = build_option_score_map(q_def.get("options"))
+        return sum(score_map.get(item, 0) for item in answer_value)
     return 0
 
 
-def get_active_org_ids(session):
-    orgs = session.query(Organization).filter(Organization.is_active == True).all()
-    if not orgs:
-        return [None]
-    return [org.id for org in orgs]
+def load_active_organizations(session):
+    return session.query(Organization).filter(Organization.is_active == True).all()
+
+
+def load_departments_for_org(session, org_id: int) -> List[str]:
+    departments = session.query(Department).filter(
+        Department.organization_id == org_id,
+        Department.is_active == True
+    ).all()
+    if departments:
+        return [dept.name for dept in departments]
+    return [f"部门{idx}" for idx in range(1, 4)]
+
+
+def clear_existing_data(session):
+    existing_survey = session.query(Survey).filter(Survey.title == SURVEY_TITLE).first()
+    if existing_survey:
+        session.query(SurveyAnswer).filter(SurveyAnswer.survey_id == existing_survey.id).delete()
+        session.query(SurveyQuestion).filter(SurveyQuestion.survey_id == existing_survey.id).delete()
+        session.delete(existing_survey)
+        session.commit()
+
+    question_texts = [qd["text"] for qd in QUESTION_DEFS]
+    session.query(Question).filter(
+        Question.owner_id == CREATED_BY_USER_ID,
+        Question.text.in_(question_texts)
+    ).delete(synchronize_session=False)
+    session.commit()
+
+
+def create_questions(session) -> Dict[str, Question]:
+    question_map: Dict[str, Question] = {}
+    for order, q_def in enumerate(QUESTION_DEFS, start=1):
+        question = Question(
+            text=q_def["text"],
+            type=q_def["type"],
+            options=json.dumps(q_def.get("options"), ensure_ascii=False) if q_def.get("options") else None,
+            category_id=None,
+            is_required=False,
+            order=order,
+            owner_id=CREATED_BY_USER_ID
+        )
+        session.add(question)
+        session.commit()
+        session.refresh(question)
+        question_map[q_def["key"]] = question
+
+        parent_key = q_def.get("parent_key")
+        if parent_key:
+            parent_question = question_map.get(parent_key)
+            if parent_question:
+                question.parent_question_id = parent_question.id
+                question.trigger_options = json.dumps(q_def.get("trigger_options", []), ensure_ascii=False)
+                session.add(question)
+                session.commit()
+
+    return question_map
+
+
+def link_questions_to_survey(session, survey: Survey, question_map: Dict[str, Question]):
+    for order, question in enumerate(question_map.values(), start=1):
+        session.add(SurveyQuestion(survey_id=survey.id, question_id=question.id, order=order))
+    session.commit()
+
+
+def generate_answers(
+    session,
+    survey: Survey,
+    question_map: Dict[str, Question],
+    organizations: List[Organization]
+) -> int:
+    total_answers = 0
+    per_org = max(1, ANSWER_COUNT // max(1, len(organizations)))
+    for org in organizations:
+        dept_choices = load_departments_for_org(session, org.id)
+        for _ in range(per_org):
+            answers_payload = {}
+            answer_context: Dict[str, object] = {}
+            total_score = 0
+
+            for q_def in QUESTION_DEFS:
+                question = question_map.get(q_def["key"])
+                if not question:
+                    continue
+                qid = str(question.id)
+
+                parent_key = q_def.get("parent_key")
+                if parent_key:
+                    parent_value = answer_context.get(parent_key)
+                    triggers = q_def.get("trigger_options", [])
+                    if not parent_value:
+                        continue
+                    parent_values = parent_value if isinstance(parent_value, list) else [parent_value]
+                    if not any(value in triggers for value in parent_values):
+                        continue
+
+                answer_value = None
+                qtype = q_def["type"]
+                if qtype == QuestionType.SINGLE_CHOICE:
+                    option = random.choice(q_def["options"])
+                    answer_value = option["text"]
+                    total_score += calc_score(q_def, answer_value)
+                elif qtype == QuestionType.MULTI_CHOICE:
+                    option_count = random.randint(1, min(3, len(q_def["options"])))
+                    selected = random.sample(q_def["options"], k=option_count)
+                    answer_value = [item["text"] for item in selected]
+                    total_score += calc_score(q_def, answer_value)
+                elif qtype == QuestionType.NUMBER_INPUT:
+                    min_val = q_def.get("min_value", 0)
+                    max_val = q_def.get("max_value", min_val + 20)
+                    answer_value = random.randint(min_val, max_val)
+                elif qtype == QuestionType.SORT_ORDER:
+                    sequence = [item["text"] for item in q_def["options"]]
+                    random.shuffle(sequence)
+                    answer_value = sequence
+                else:
+                    answer_value = f"自动生成内容 {random.randint(1, 100)}"
+
+                answers_payload[qid] = answer_value
+                answer_context[q_def["key"]] = answer_value
+
+            survey_answer = SurveyAnswer(
+                survey_id=survey.id,
+                answers=json.dumps(answers_payload, ensure_ascii=False),
+                department=random.choice(dept_choices),
+                position=random.choice(POSITIONS),
+                organization_id=org.id,
+                organization_name=org.name,
+                total_score=int(total_score),
+                submitted_at=datetime.utcnow()
+            )
+            session.add(survey_answer)
+            total_answers += 1
+        session.commit()
+    return total_answers
 
 
 def main():
     session = SessionLocal()
     try:
-        existing = session.query(Survey).filter(Survey.title == SURVEY_TITLE).first()
-        if existing:
-            session.query(SurveyAnswer).filter(SurveyAnswer.survey_id == existing.id).delete()
-            session.query(SurveyQuestion).filter(SurveyQuestion.survey_id == existing.id).delete()
-            session.delete(existing)
-            session.commit()
+        organizations = load_active_organizations(session)
+        if not organizations:
+            print("未找到可用组织，请先创建组织后再运行脚本。")
+            return
+
+        clear_existing_data(session)
 
         survey = Survey(
             title=SURVEY_TITLE,
-            description="包含所有题型的测试问卷",
+            description=SURVEY_DESCRIPTION,
             created_by_user_id=CREATED_BY_USER_ID
         )
         session.add(survey)
         session.commit()
         session.refresh(survey)
 
-        question_map = {}
-        for order, qd in enumerate(QUESTION_DEFS, start=1):
-            q = Question(
-                text=qd["text"],
-                type=qd["type"],
-                options=json.dumps(qd.get("options"), ensure_ascii=False) if qd.get("options") else None,
-                category_id=None,
-                is_required=False,
-                order=order,
-                owner_id=CREATED_BY_USER_ID
-            )
-            session.add(q)
-            session.commit()
-            session.refresh(q)
-            question_map[qd["key"]] = q
-            session.add(SurveyQuestion(survey_id=survey.id, question_id=q.id, order=order))
-            session.commit()
-            parent_key = qd.get("parent_key")
-            if parent_key:
-                parent = question_map.get(parent_key)
-                if parent:
-                    q.parent_question_id = parent.id
-                    q.trigger_options = json.dumps(qd.get("trigger_options", []), ensure_ascii=False)
-                    session.add(q)
-                    session.commit()
+        question_map = create_questions(session)
+        link_questions_to_survey(session, survey, question_map)
 
-        org_ids = get_active_org_ids(session)
-        for org_id in org_ids:
-            for _ in range(ANSWER_COUNT_PER_ORG):
-                answers_dict = {}
-                total_score = 0
-                for key, q in question_map.items():
-                    q_def = next(item for item in QUESTION_DEFS if item["key"] == key)
-                    qid = str(q.id)
-                    qtype = q_def["type"]
-                    if qtype == QuestionType.SINGLE_CHOICE:
-                        opt = random.choice(q_def["options"])
-                        answers_dict[qid] = opt["text"]
-                        total_score += calc_score_for_answer(q_def, opt["text"])
-                    elif qtype == QuestionType.MULTI_CHOICE:
-                        opts = random.sample(q_def["options"], k=1)
-                        values = [o["text"] for o in opts]
-                        answers_dict[qid] = values
-                        total_score += calc_score_for_answer(q_def, values)
-                    elif qtype == QuestionType.NUMBER_INPUT:
-                        value = random.randint(1, 12)
-                        answers_dict[qid] = value
-                    elif qtype == QuestionType.SORT_ORDER:
-                        order_opts = [opt["text"] for opt in q_def["options"]]
-                        random.shuffle(order_opts)
-                        answers_dict[qid] = order_opts
-                    elif qtype == QuestionType.CONDITIONAL:
-                        parent_key = q_def.get("parent_key")
-                        trigger = q_def.get("trigger_options", [])
-                        parent_q = question_map.get(parent_key)
-                        parent_answer = answers_dict.get(str(parent_q.id)) if parent_q else None
-                        if parent_answer and parent_answer in trigger:
-                            answers_dict[qid] = f"信息 {random.randint(1, 20)}"
-                    else:
-                        answers_dict[qid] = f"开放回答 {random.randint(1, 50)}"
-                sa = SurveyAnswer(
-                    survey_id=survey.id,
-                    answers=json.dumps(answers_dict, ensure_ascii=False),
-                    department=f"部门{random.randint(1,5)}",
-                    position=f"岗位{random.randint(1,5)}",
-                    organization_id=org_id,
-                    organization_name=f"ORG-{org_id}" if org_id else None,
-                    total_score=int(total_score)
-                )
-                session.add(sa)
-        session.commit()
-        print(f"Seed ready: survey_id={survey.id}, questions={len(question_map)}")
+        answers_created = generate_answers(session, survey, question_map, organizations)
+
+        print(
+            f"脚本完成：survey_id={survey.id}，问题数量={len(question_map)}，"
+            f"组织数量={len(organizations)}，答案数量={answers_created}"
+        )
     finally:
         session.close()
 
