@@ -125,6 +125,19 @@ export function getSurveyQuestions(surveyId) {
 }
 
 /**
+ * 获取主观题答案列表
+ * @param {number} surveyId - 调研ID
+ * @param {Object} params - 筛选参数
+ * @param {number} params.question_number - 题号
+ * @param {string} params.question_text - 题目关键词
+ * @param {string} params.department - 部门
+ * @returns {Promise<Array>} 主观题答案列表
+ */
+export function getSubjectiveAnswers(surveyId, params = {}) {
+  return request.get(`/surveys/${surveyId}/subjective-answers`, { params })
+}
+
+/**
  * 提交调研答卷
  * @param {number} surveyId - 调研ID
  * @param {Object} responseData - 答卷数据

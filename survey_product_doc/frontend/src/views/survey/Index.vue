@@ -98,10 +98,6 @@
                   详细答案
                 </el-button>
                 
-                <!-- 主观答案 -->
-                <el-button type="primary" link @click="openSubjectiveAnswers(scope.row)">
-                  详细答案
-                </el-button>
                 
                 <!-- 编辑调研：点击时验证权限 -->
                 <el-button
@@ -285,7 +281,6 @@ import { useRouter, useRoute } from 'vue-router'
 import * as surveyApi from '@/api/survey'
 import * as questionApi from '@/api/question'
 import QRCodeGenerator from '@/components/QRCodeGenerator.vue'
-import SubjectiveAnswersDialog from '@/components/SubjectiveAnswersDialog.vue'
 
 // ===== 路由和基础状态 =====
 const router = useRouter()
@@ -303,12 +298,6 @@ const viewMode = ref('my') // 视图模式：'my' 我的调研，'global' 全局
 
 // 调研列表数据
 const surveyList = ref([])
-const subjectiveDialog = ref({
-  visible: false,
-  surveyId: null,
-  title: ''
-})
-
 // ===== 创建调研对话框相关状态 =====
 const createDialog = ref({
   visible: false,
@@ -711,14 +700,6 @@ const downloadQrCode = () => {
  */
 const viewAnalysis = (survey) => {
   router.push(`/analysis?id=${survey.id}`)
-}
-
-const openSubjectiveAnswers = (survey) => {
-  subjectiveDialog.value = {
-    visible: true,
-    surveyId: survey.id,
-    title: survey.title
-  }
 }
 
 /**
