@@ -161,4 +161,19 @@ router.afterEach((to, from) => {
   // 例如：滚动到顶部、清理状态等
 })
 
+let hasReloadedForChunkError = false
+router.onError((error) => {
+  const chunkErrorPattern = /Failed to fetch dynamically imported module|Loading chunk [^ ]+ failed/
+  if (
+    !hasReloadedForChunkError &&
+    error &&
+    error.message &&
+    chunkErrorPattern.test(error.message)
+  ) {
+    hasReloadedForChunkError = true
+    console.warn('检测到动态导入模块失败，正在刷新页面以加载最新资源', error)
+    window.location.reload()
+  }
+})
+
 export default router

@@ -222,12 +222,10 @@ import * as surveyApi from '@/api/survey'
 import * as organizationApi from '@/api/organization'
 import * as questionApi from '@/api/question'
 import * as analyticsApi from '@/api/analytics'
+import { getCurrentUser } from '@/api/user'
 
 const loading = ref(false)
 const showResult = ref(false)
-
-// 组织ID - 从localStorage或路由参数获取
-const organizationId = ref(2) // 默认值，实际应该从用户登录信息获取
 
 // 筛选数据
 const surveyList = ref([])
@@ -238,6 +236,11 @@ const tagList = ref([])
 
 // 筛选条件选择
 const selectedSurvey = ref(null)
+const fallbackOrganizationId = ref(null)
+const currentOrganizationId = computed(() => {
+  const survey = surveyList.value.find(s => s.id === selectedSurvey.value)
+  return survey?.organization_id ?? fallbackOrganizationId.value
+})
 const selectedCompanies = ref([])
 const compareDimension = ref('question')
 const selectedQuestion = ref(null)
@@ -366,8 +369,9 @@ const chartDescription = computed(() => {
 })
 
 // 初始化
-onMounted(() => {
-  loadAllData()
+onMounted(async () => {
+  await loadCurrentOrganization()
+  await loadAllData()
 })
 
 // 加载所有数据
@@ -408,6 +412,17 @@ const loadAllData = async () => {
     ElMessage.error('加载数据失败')
   } finally {
     loading.value = false
+  }
+}
+
+const loadCurrentOrganization = async () => {
+  try {
+    const user = await getCurrentUser()
+    if (user?.organization_id) {
+      fallbackOrganizationId.value = user.organization_id
+    }
+  } catch (error) {
+    console.warn('获取当前组织ID失败:', error)
   }
 }
 
@@ -806,8 +821,15 @@ const generateComparisonConclusion = async (comparisonResult) => {
       comparison_data: comparisonResult.comparison_data
     }
     
+    const targetOrganizationId = currentOrganizationId.value
+    if (!targetOrganizationId) {
+      console.warn('无法获取组织ID，无法调用AI企业对比分析接口')
+      ElMessage.warning('AI企业对比分析需要有效的组织，请稍后重试')
+      return
+    }
+
     const response = await analyticsApi.generateEnterpriseComparisonAI(
-      organizationId.value, 
+      targetOrganizationId, 
       selectedSurvey.value, 
       aiAnalysisData
     )
