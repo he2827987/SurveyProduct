@@ -4,11 +4,16 @@ services:
     env: python
     plan: free
     buildCommand: |
+      cd survey_product_doc/frontend
+      npm install
+      npm run build
+      cd ..
       cd survey_product_doc
       pip install -r requirements.txt
       python backend/init_database.py
     startCommand: |
       cd survey_product_doc
+      python -m alembic upgrade head
       python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
