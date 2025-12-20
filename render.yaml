@@ -4,10 +4,8 @@ services:
     env: python
     plan: free
     buildCommand: |
-      cd survey_product_doc/frontend
-      npm install
-      npm run build
-      cd ..
+      npm install --prefix survey_product_doc/frontend
+      npm run build --prefix survey_product_doc/frontend
       cd survey_product_doc
       pip install -r requirements.txt
       python backend/init_database.py
