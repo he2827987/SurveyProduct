@@ -63,26 +63,44 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# --- 2. 定义前端构建输出目录 ---
-# !!! 非常重要 !!!
-# 请根据你 'npm run build' 命令的实际输出目录进行调整。
-# 假设你的项目结构是:
-# /your_repo_root
-#   ├── backend/
-#   │   └── app/
-#   │       └── main.py
-#   └── survey_product_doc/
-#       └── frontend/
-#           ├── ... (src files)
-#           └── dist/  <-- 你的 build output here
-#
-# 如果你的 `npm run build` 输出到 'build' 目录，请改为:
-# STATIC_FRONTEND_DIR = "survey_product_doc/frontend/build"
-# 如果输出到 'out' 目录，请改为:
-# STATIC_FRONTEND_DIR = "survey_product_doc/frontend/out"
-#
-# 这里的路径是相对于 Render 部署时运行 'uvicorn' 命令的当前工作目录 (通常是项目根目录)。
-STATIC_FRONTEND_DIR = "survey_product_doc/frontend/dist"
+# --- 2. 定义前端构建输出目录（动态探测） ---
+# 使用相对 main.py 的路径自动探测 dist，避免依赖启动目录
+from pathlib import Path
+
+CURRENT_FILE_PATH = Path(__file__).resolve()
+BACKEND_APP_DIR = CURRENT_FILE_PATH.parent  # .../backend/app
+BACKEND_DIR = BACKEND_APP_DIR.parent        # .../backend
+PROJECT_ROOT = BACKEND_DIR.parent           # .../survey_product_doc
+
+# Render 工作目录通常是仓库根 (/opt/render/project/src/survey_product_doc)
+# 因此 dist 通常位于 PROJECT_ROOT/frontend/dist
+possible_dist_paths = [
+    PROJECT_ROOT / "frontend" / "dist",
+    PROJECT_ROOT.parent / "frontend" / "dist",   # 仓库再上一级的 frontend/dist
+    Path("frontend/dist"),                       # 相对当前工作目录
+    Path("survey_product_doc/frontend/dist"),    # 相对上级工作目录
+]
+
+STATIC_FRONTEND_DIR = "frontend/dist"  # 默认回退
+print("DEBUG: Static dist candidate paths:")
+for candidate in possible_dist_paths:
+    print(f" - {candidate} | exists={candidate.exists()} | dir={candidate.is_dir()}")
+    if candidate.exists() and candidate.is_dir():
+        STATIC_FRONTEND_DIR = str(candidate)
+        print(f"DEBUG: Found frontend dist at: {STATIC_FRONTEND_DIR}")
+        break
+
+# 额外调试信息
+print(f"DEBUG: Current Working Directory: {os.getcwd()}")
+print(f"DEBUG: Configured Static Dir: {STATIC_FRONTEND_DIR}")
+print(f"DEBUG: Absolute Static Dir: {os.path.abspath(STATIC_FRONTEND_DIR)}")
+try:
+    if os.path.exists(STATIC_FRONTEND_DIR):
+        print(f"DEBUG: Content of Static Dir: {os.listdir(STATIC_FRONTEND_DIR)}")
+    else:
+        print(f"DEBUG: Static Dir does not exist: {STATIC_FRONTEND_DIR}")
+except Exception as e:
+    print(f"DEBUG: Error listing Static Dir: {e}")
 
 # --- CORS 中间件配置 ---
 # 本地开发时用的源
