@@ -118,6 +118,7 @@ async def get_survey_analytics(
             "response_distribution": {},
             "options": json.loads(question.options) if question.options else []
         }
+        question_data["answers_examples"] = []
         
         # 统计每个问题的回答
         for answer in answers:
@@ -151,6 +152,15 @@ async def get_survey_analytics(
                             question_data["response_distribution"]["有回答"] = question_data["response_distribution"].get("有回答", 0) + 1
                         else:
                             question_data["response_distribution"]["无回答"] = question_data["response_distribution"].get("无回答", 0) + 1
+                    
+                    # 收集示例回答文本
+                    if response and isinstance(response, str) and response.strip():
+                        if len(question_data["answers_examples"]) < 20:
+                            question_data["answers_examples"].append(response.strip())
+                    elif response and isinstance(response, list):
+                        joined = ", ".join([str(r).strip() for r in response if str(r).strip()])
+                        if joined and len(question_data["answers_examples"]) < 20:
+                            question_data["answers_examples"].append(joined)
             except (json.JSONDecodeError, KeyError):
                 continue
         
