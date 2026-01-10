@@ -1,0 +1,347 @@
+# backend/app/services/survey_service.py
+
+from typing import Optional
+import json
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+from backend.app.models.answer import SurveyAnswer
+from backend.app.models.question import Question as QuestionModel, QuestionType
+from backend.app.models.survey import Survey as SurveyModel
+from backend.app.models.survey_question import SurveyQuestion
+from backend.app.schemas.survey import SurveyCreate, SurveyUpdate
+import datetime
+
+def _attach_counts(db: Session, surveys: list[SurveyModel]):
+    survey_ids = [survey.id for survey in surveys if survey]
+    if not survey_ids:
+        return
+
+    question_counts = dict(
+        db.query(SurveyQuestion.survey_id, func.count(SurveyQuestion.question_id))
+        .filter(SurveyQuestion.survey_id.in_(survey_ids))
+        .group_by(SurveyQuestion.survey_id)
+        .all()
+    )
+
+    response_counts = dict(
+        db.query(SurveyAnswer.survey_id, func.count(SurveyAnswer.id))
+        .filter(SurveyAnswer.survey_id.in_(survey_ids))
+        .group_by(SurveyAnswer.survey_id)
+        .all()
+    )
+
+    for survey in surveys:
+        if not survey:
+            continue
+        setattr(survey, 'question_count', question_counts.get(survey.id, 0))
+        setattr(survey, 'response_count', response_counts.get(survey.id, 0))
+
+def _normalize_status(db: Session, survey: SurveyModel):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    expected_status = survey.status
+
+    if survey.end_time and now >= survey.end_time:
+        expected_status = 'completed'
+    elif survey.start_time and (not survey.end_time or now < survey.end_time):
+        expected_status = 'active'
+    elif not survey.start_time:
+        expected_status = 'pending'
+
+    if expected_status != survey.status:
+        survey.status = expected_status
+        db.add(survey)
+        db.commit()
+        db.refresh(survey)
+
+def _enrich_surveys(db: Session, surveys: list[SurveyModel]):
+    if not surveys:
+        return surveys
+    for survey in surveys:
+        _normalize_status(db, survey)
+    _attach_counts(db, surveys)
+    return surveys
+
+def get_subjective_answers(
+    db: Session,
+    survey_id: int,
+    question_id: Optional[int] = None,
+    question_number: Optional[int] = None,
+    question_text: Optional[str] = None,
+    department: Optional[str] = None
+) -> list[dict]:
+    answers = db.query(SurveyAnswer).filter(SurveyAnswer.survey_id == survey_id).order_by(SurveyAnswer.submitted_at.desc()).all()
+    if not answers:
+        return []
+
+    question_orders = {
+        sq.question_id: sq.order
+        for sq in db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey_id).all()
+    }
+
+    question_ids = set()
+    for ans in answers:
+        try:
+            answer_map = json.loads(ans.answers)
+        except Exception:
+            continue
+        for key in answer_map.keys():
+            try:
+                question_ids.add(int(key))
+            except ValueError:
+                continue
+
+    questions = db.query(QuestionModel).filter(QuestionModel.id.in_(question_ids)).all() if question_ids else []
+    question_map = {q.id: q for q in questions}
+
+    result = []
+    subject_types = {QuestionType.TEXT_INPUT.value, QuestionType.NUMBER_INPUT.value}
+
+    for ans in answers:
+        try:
+            answer_map = json.loads(ans.answers)
+        except Exception:
+            continue
+
+        for qid_raw, value in answer_map.items():
+            try:
+                qid = int(qid_raw)
+            except (TypeError, ValueError):
+                continue
+
+            question = question_map.get(qid)
+            if not question or question.type.value not in subject_types:
+                continue
+
+            answer_text = value
+            if isinstance(answer_text, list):
+                answer_text = ', '.join(str(item) for item in answer_text)
+            elif answer_text is None:
+                answer_text = ''
+            else:
+                answer_text = str(answer_text)
+
+            if question_id and qid != question_id:
+                continue
+            if question_number and question_orders.get(qid) != question_number:
+                continue
+            if question_text and question_text.lower() not in question.text.lower():
+                continue
+            if department and department.strip():
+                dept_value = (ans.department or '').lower()
+                if department.strip().lower() not in dept_value:
+                    continue
+
+            respondent_name = None
+            if ans.user:
+                respondent_name = ans.user.username
+            elif ans.participant:
+                respondent_name = ans.participant.name
+
+            result.append({
+                "answer_id": ans.id,
+                "question_id": qid,
+                "question_number": question_orders.get(qid),
+                "question_text": question.text,
+                "answer_text": answer_text,
+                "department": ans.department,
+                "respondent_name": respondent_name,
+                "submitted_at": ans.submitted_at
+            })
+
+    return result
+
+def create_survey(db: Session, survey: SurveyCreate, user_id: int):
+    """
+    创建一份新的问卷。
+    如果提供了question_ids，则创建调研与题目的关联关系。
+    """
+    db_survey = SurveyModel(
+        title=survey.title,  # 使用survey.title，因为schema中定义的是title字段
+        description=survey.description,
+        created_by_user_id=user_id
+    )
+    db.add(db_survey)
+    db.commit()
+    db.refresh(db_survey)
+
+    # 如果提供了question_ids，则创建调研与题目的关联关系
+    if survey.question_ids:
+        for order, question_id in enumerate(survey.question_ids, 1):
+            survey_question = SurveyQuestion(
+                survey_id=db_survey.id,
+                question_id=question_id,
+                order=order
+            )
+            db.add(survey_question)
+        db.commit()
+
+    return db_survey
+
+def get_survey(db: Session, survey_id: int):
+    """
+    根据 ID 获取问卷。
+    """
+    survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    if survey:
+        _normalize_status(db, survey)
+        _attach_counts(db, [survey])
+    return survey
+
+def get_surveys_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+    """
+    获取某个用户创建的所有问卷。
+    """
+    surveys = db.query(SurveyModel).filter(SurveyModel.created_by_user_id == user_id).offset(skip).limit(limit).all()
+    return _enrich_surveys(db, surveys)
+
+def get_global_surveys(db: Session, skip: int = 0, limit: int = 100, search: str = None, status_filter: str = None, sort_by: str = None):
+    """
+    获取全局调研库中的所有调研。
+    支持搜索、状态筛选和排序。
+    """
+    query = db.query(SurveyModel)
+    
+    # 添加搜索过滤
+    if search:
+        query = query.filter(SurveyModel.title.contains(search))
+    
+    # 添加状态过滤
+    if status_filter:
+        query = query.filter(SurveyModel.status == status_filter)
+    
+    # 添加排序
+    if sort_by:
+        if sort_by == "created_desc":
+            query = query.order_by(SurveyModel.created_at.desc())
+        elif sort_by == "created_asc":
+            query = query.order_by(SurveyModel.created_at.asc())
+        elif sort_by == "title_asc":
+            query = query.order_by(SurveyModel.title.asc())
+        elif sort_by == "title_desc":
+            query = query.order_by(SurveyModel.title.desc())
+    else:
+        # 默认按创建时间降序
+        query = query.order_by(SurveyModel.created_at.desc())
+    
+    surveys = query.offset(skip).limit(limit).all()
+    return _enrich_surveys(db, surveys)
+
+def update_survey(db: Session, survey_id: int, survey_update: SurveyUpdate):
+    """
+    更新问卷信息。
+    如果提供了question_ids，则更新调研与题目的关联关系。
+    """
+    from backend.app.models.survey_question import SurveyQuestion
+
+    db_survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    if db_survey:
+        update_data = survey_update.model_dump(exclude_unset=True) # Pydantic v2: model_dump
+
+        # 特殊处理question_ids：删除现有关联，创建新的关联
+        if 'question_ids' in update_data:
+            question_ids = update_data.pop('question_ids')  # 从更新数据中移除，避免直接设置到SurveyModel
+
+            # 删除现有的survey-question关联
+            db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey_id).delete()
+
+            # 创建新的关联
+            if question_ids:
+                for order, question_id in enumerate(question_ids, 1):
+                    survey_question = SurveyQuestion(
+                        survey_id=survey_id,
+                        question_id=question_id,
+                        order=order
+                    )
+                    db.add(survey_question)
+
+        # 更新其他字段
+        for key, value in update_data.items():
+            setattr(db_survey, key, value)
+
+        db.add(db_survey)
+        db.commit()
+        db.refresh(db_survey)
+    return db_survey
+
+def delete_survey(db: Session, survey_id: int):
+    """
+    删除问卷。
+    """
+    db_survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    if db_survey:
+        db.delete(db_survey)
+        db.commit()
+    return db_survey
+
+# 辅助函数：检查用户是否是问卷的创建者
+def is_survey_creator(db: Session, survey_id: int, user_id: int):
+    """
+    检查给定用户是否是指定问卷的创建者。
+    """
+    survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    # 更简洁的写法
+    return survey is not None and survey.created_by_user_id == user_id
+
+def get_survey_questions(db: Session, survey_id: int):
+    """
+    获取调研的题目列表
+    """
+    from backend.app.models.question import Question
+    
+    # 首先检查调研是否存在
+    survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    if not survey:
+        return None
+    
+    # 通过SurveyQuestion关联表获取题目
+    survey_questions = db.query(SurveyQuestion).filter(
+        SurveyQuestion.survey_id == survey_id
+    ).order_by(SurveyQuestion.order).all()
+    
+    questions = []
+    for sq in survey_questions:
+        question = db.query(Question).filter(Question.id == sq.question_id).first()
+        if question:
+            # 转换选项格式
+            options = []
+            if question.options:
+                try:
+                    import json
+                    options = json.loads(question.options) if isinstance(question.options, str) else question.options
+                except:
+                    options = []
+            
+            questions.append({
+                "id": question.id,
+                "text": question.text,
+                "type": question.type,
+                "options": options,
+                "is_required": question.is_required,
+                "order": sq.order,
+                "min_score": question.min_score,
+                "max_score": question.max_score
+            })
+    
+    return questions
+
+def update_survey_status(db: Session, survey_id: int, status: str, end_time: Optional[datetime.datetime] = None, start_time: Optional[datetime.datetime] = None):
+    survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
+    if not survey:
+        return None
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    survey.status = status
+
+    if status == 'active':
+        survey.start_time = start_time or survey.start_time or now
+        survey.end_time = end_time
+    elif status == 'completed':
+        survey.end_time = end_time or survey.end_time or now
+    elif status == 'pending':
+        survey.start_time = start_time
+        survey.end_time = end_time
+
+    db.add(survey)
+    db.commit()
+    db.refresh(survey)
+    return survey

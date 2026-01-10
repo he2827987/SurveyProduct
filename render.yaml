@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: survey-product-backend
+    env: python
+    plan: free
+    buildCommand: |
+      npm install --prefix frontend &&
+      npm run build --prefix frontend &&
+      pip install -r requirements.txt
+    startCommand: cd survey_product_doc && python -m alembic upgrade head && python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: MYSQL_HOST
+        sync: false
+      - key: MYSQL_PORT
+        value: "3306"
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD
+        sync: false
+      - key: MYSQL_DATABASE
+        value: "survey_db"
+    healthCheckPath: /api/v1/health

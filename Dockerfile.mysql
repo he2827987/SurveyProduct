@@ -1,0 +1,13 @@
+FROM mysql:8.0
+
+# 设置环境变量
+ENV MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+ENV MYSQL_DATABASE=${MYSQL_DATABASE}
+ENV MYSQL_USER=${MYSQL_USER}
+ENV MYSQL_PASSWORD=${MYSQL_PASSWORD}
+
+# 复制初始化脚本
+COPY survey_product_doc/backend/create_tags_table.sql /docker-entrypoint-initdb.d/
+
+# 暴露端口
+EXPOSE 3306
