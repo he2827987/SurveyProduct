@@ -233,11 +233,6 @@ async def generate_survey_summary(survey_data: Dict[str, Any], model: str = DEFA
 - 回答数：{question.get('total_responses', 0)}
 - 回答分布：{question.get('response_distribution', {})}
 """
-            answers_examples = question.get('answers_examples', [])
-            if answers_examples:
-                prompt += "- 示例回答：\n"
-                for example in answers_examples[:5]:
-                    prompt += f"  - {example}\n"
         
         # 添加参与者分析数据
         participant_analysis = survey_data.get('participant_analysis', {})
@@ -263,7 +258,6 @@ async def generate_survey_summary(survey_data: Dict[str, Any], model: str = DEFA
 """
 
         # 调用LLM生成总结
-        logger.debug(f"[LLM Service] Prompt preview:\n{prompt[:500]}")
         summary_text = await _call_openrouter(prompt, model=model)
         
         # 构造返回结果

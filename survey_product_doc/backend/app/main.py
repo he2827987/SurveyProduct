@@ -12,6 +12,7 @@
 
 import logging
 import os
+import sys
 from pathlib import Path
 
 from alembic import command
@@ -21,6 +22,39 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles  # <-- 1. 导入 StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from contextlib import asynccontextmanager
+
+# ===== 配置日志系统 =====
+# 配置根日志记录器
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.StreamHandler(sys.stdout)  # 输出到标准输出
+    ]
+)
+
+# 获取应用日志记录器
+logger = logging.getLogger(__name__)
+
+# --- Lifespan 事件处理器 ---
+# 这将触发 uvicorn 的生命周期日志输出
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup - 在应用启动前执行
+    logger.info("=" * 60)
+    logger.info("🚀 Survey Product API lifespan startup...")
+    logger.info("=" * 60)
+
+    # 在这里可以执行应用初始化逻辑
+    # yield 后 uvicorn 会输出 "Application startup complete."
+    yield
+
+    # Shutdown - 在应用关闭时执行
+    logger.info("🛑 Survey Product API lifespan shutdown...")
+
+logger.info("✅ Lifespan 事件处理器已配置")
 
 # --- 导入你的数据库模型和API路由 ---
 # 确保你的数据库配置和API路由导入是正确的
@@ -55,52 +89,37 @@ def run_alembic_migrations():
 
 run_alembic_migrations()
 Base.metadata.create_all(bind=engine)
+logger.info("✅ 数据库迁移完成")
 
 # --- FastAPI 应用初始化 ---
 app = FastAPI(
     title="Survey Product Document API",
     description="API for managing surveys, questions, answers, users, and organizations.",
     version="0.1.0",
+    lifespan=lifespan,  # 添加 lifespan 事件处理器
 )
+logger.info("✅ FastAPI 应用初始化完成")
 
-# --- 2. 定义前端构建输出目录（动态探测） ---
-# 使用相对 main.py 的路径自动探测 dist，避免依赖启动目录
-from pathlib import Path
-
-CURRENT_FILE_PATH = Path(__file__).resolve()
-BACKEND_APP_DIR = CURRENT_FILE_PATH.parent  # .../backend/app
-BACKEND_DIR = BACKEND_APP_DIR.parent        # .../backend
-PROJECT_ROOT = BACKEND_DIR.parent           # .../survey_product_doc
-
-# Render 工作目录通常是仓库根 (/opt/render/project/src/survey_product_doc)
-# 因此 dist 通常位于 PROJECT_ROOT/frontend/dist
-possible_dist_paths = [
-    PROJECT_ROOT / "frontend" / "dist",
-    PROJECT_ROOT.parent / "frontend" / "dist",   # 仓库再上一级的 frontend/dist
-    Path("frontend/dist"),                       # 相对当前工作目录
-    Path("survey_product_doc/frontend/dist"),    # 相对上级工作目录
-]
-
-STATIC_FRONTEND_DIR = "frontend/dist"  # 默认回退
-print("DEBUG: Static dist candidate paths:")
-for candidate in possible_dist_paths:
-    print(f" - {candidate} | exists={candidate.exists()} | dir={candidate.is_dir()}")
-    if candidate.exists() and candidate.is_dir():
-        STATIC_FRONTEND_DIR = str(candidate)
-        print(f"DEBUG: Found frontend dist at: {STATIC_FRONTEND_DIR}")
-        break
-
-# 额外调试信息
-print(f"DEBUG: Current Working Directory: {os.getcwd()}")
-print(f"DEBUG: Configured Static Dir: {STATIC_FRONTEND_DIR}")
-print(f"DEBUG: Absolute Static Dir: {os.path.abspath(STATIC_FRONTEND_DIR)}")
-try:
-    if os.path.exists(STATIC_FRONTEND_DIR):
-        print(f"DEBUG: Content of Static Dir: {os.listdir(STATIC_FRONTEND_DIR)}")
-    else:
-        print(f"DEBUG: Static Dir does not exist: {STATIC_FRONTEND_DIR}")
-except Exception as e:
-    print(f"DEBUG: Error listing Static Dir: {e}")
+# --- 2. 定义前端构建输出目录 ---
+# !!! 非常重要 !!!
+# 请根据你 'npm run build' 命令的实际输出目录进行调整。
+# 假设你的项目结构是:
+# /your_repo_root
+#   ├── backend/
+#   │   └── app/
+#   │       └── main.py
+#   └── survey_product_doc/
+#       └── frontend/
+#           ├── ... (src files)
+#           └── dist/  <-- 你的 build output here
+#
+# 如果你的 `npm run build` 输出到 'build' 目录，请改为:
+# STATIC_FRONTEND_DIR = "survey_product_doc/frontend/build"
+# 如果输出到 'out' 目录，请改为:
+# STATIC_FRONTEND_DIR = "survey_product_doc/frontend/out"
+#
+# 这里的路径是相对于 Render 部署时运行 'uvicorn' 命令的当前工作目录 (通常是项目根目录)。
+STATIC_FRONTEND_DIR = "survey_product_doc/frontend/dist"
 
 # --- CORS 中间件配置 ---
 # 本地开发时用的源
@@ -129,6 +148,7 @@ app.add_middleware(
     allow_methods=["*"],  # 允许所有 HTTP 方法
     allow_headers=["*"],  # 允许所有请求头
 )
+logger.info("✅ CORS 中间件配置完成")
 
 
 # --- 注册 API 路由 ---
@@ -145,6 +165,25 @@ app.include_router(analytics_api.router, tags=["analytics"], prefix="/api/v1")
 app.include_router(category_api.router, tags=["category"], prefix="/api/v1")
 app.include_router(tag_api.router, tags=["tag"], prefix="/api/v1")
 app.include_router(analysis_api.router, tags=["analysis"], prefix="/api/v1")
+logger.info("✅ 所有API路由注册完成")
+
+# --- 保留其他测试或健康检查路由 ---
+# 这些路由必须在 catch-all 路由之前定义，避免被拦截
+@app.get("/test")
+def test_endpoint():
+    logger.info("📝 测试端点请求")
+    return {"message": "Test endpoint working!"}
+
+@app.get("/api/v1/health")
+def health_check():
+    # 建议使用一些动态获取的时间戳，而不是硬编码
+    import datetime
+    logger.info("📊 健康检查请求")
+    return {
+        "status": "healthy",
+        "message": "Survey API is running",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
 
 # --- 3. 挂载前端静态文件 ---
 # 注意顺序：先注册 API，再挂载静态目录，避免 /api/* 被静态服务截获导致 404/405
@@ -157,6 +196,7 @@ else:
 
 # --- 4. Catch-all 路由用于 SPA 回退 ---
 # 对于非 API 路径，回退到前端 index.html，避免刷新 404
+# 这个路由必须在最后定义，避免拦截其他路由
 @app.get("/{full_path:path}")
 def spa_fallback(full_path: str):
     if full_path.startswith("api/"):
@@ -166,20 +206,12 @@ def spa_fallback(full_path: str):
         return FileResponse(index_file)
     return JSONResponse(status_code=404, content={"detail": "Index file not found"})
 
-# --- 保留其他测试或健康检查路由 ---
-# 这些路由不会与静态文件服务或API路由冲突
-@app.get("/test")
-def test_endpoint():
-    return {"message": "Test endpoint working!"}
+# 注意：完整的启动日志流程：
+# 1. lifespan startup 开始 -> 输出启动信息
+# 2. yield -> uvicorn lifespan/on.py 第62行输出 "Application startup complete."
+# 3. lifespan shutdown -> 输出关闭信息
 
-@app.get("/api/v1/health")
-def health_check():
-    # 建议使用一些动态获取的时间戳，而不是硬编码
-    import datetime
-    return {
-        "status": "healthy",
-        "message": "Survey API is running",
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
-    }
+# ✅ 已成功恢复 uvicorn 默认的启动完成日志输出
 
 # --- END OF FILE ---
+# 现在 lifespan 事件处理器会触发 uvicorn 的生命周期日志输出

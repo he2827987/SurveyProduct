@@ -10,6 +10,54 @@ import axios from 'axios';
 import { ElMessage } from 'element-plus';
 import router from '@/router';
 
+/**
+ * 验证 JWT token 是否有效
+ * @param {string} token - JWT token
+ * @returns {Promise<boolean>} token 是否有效
+ */
+export function verifyToken(token) {
+  if (!token) return Promise.resolve(false);
+
+  try {
+    // 解码 JWT token 检查过期时间
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+
+    // 检查是否过期
+    if (payload.exp && payload.exp < currentTime) {
+      return Promise.resolve(false);
+    }
+
+    return Promise.resolve(true);
+  } catch (error) {
+    console.error('Token 解码失败:', error);
+    return Promise.resolve(false);
+  }
+}
+
+/**
+ * 验证当前用户 token 并处理认证失败
+ * @returns {Promise<boolean>} 验证是否通过
+ */
+export function validateAuthToken() {
+  const token = localStorage.getItem('access_token');
+
+  if (!token) {
+    return Promise.resolve(false);
+  }
+
+  return verifyToken(token).then(isValid => {
+    if (!isValid) {
+      // Token 无效，清除本地存储并重定向到登录页
+      localStorage.removeItem('access_token');
+      ElMessage.warning('认证已过期，请重新登录');
+      router.push('/login');
+      return false;
+    }
+    return true;
+  });
+}
+
 // ===== 创建Axios实例 =====
 
 /**

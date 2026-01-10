@@ -13,21 +13,7 @@
     <el-card class="filter-card">
       <el-form :inline="true" class="filter-form">
         <el-form-item label="题号">
-          <el-select
-            v-model="filters.questionNumber"
-            placeholder="（未选择）"
-            clearable
-            filterable
-            style="width: 160px"
-          >
-            <el-option label="（未选择）" :value="''" />
-            <el-option
-              v-for="num in questionNumberOptions"
-              :key="num"
-              :label="`第 ${num} 题`"
-              :value="num"
-            />
-          </el-select>
+          <el-input-number v-model="filters.questionNumber" :min="1" placeholder="题号" />
         </el-form-item>
         <el-form-item label="题目">
           <el-input v-model="filters.questionText" placeholder="题目关键词" />
@@ -81,15 +67,14 @@ const surveyId = Number(route.params.id)
 
 const answers = ref([])
 const loading = ref(false)
-const filters = ref({ questionNumber: '', questionText: '', department: '' })
-const questionNumberOptions = ref([])
+const filters = ref({ questionNumber: null, questionText: '', department: '' })
 
 const loadData = async () => {
   if (!surveyId) return
   loading.value = true
   try {
     const params = {}
-    if (filters.value.questionNumber !== '' && filters.value.questionNumber !== null) {
+    if (filters.value.questionNumber) {
       params.question_number = filters.value.questionNumber
     }
     if (filters.value.questionText) {
@@ -99,9 +84,6 @@ const loadData = async () => {
       params.department = filters.value.department.trim()
     }
     answers.value = await surveyApi.getSubjectiveAnswers(surveyId, params)
-    // 构建题号下拉选项（去重+排序）
-    const nums = Array.from(new Set(answers.value.map((a) => a.question_number).filter(Boolean)))
-    questionNumberOptions.value = nums.sort((a, b) => a - b)
   } catch (error) {
     console.error('加载主观题答案失败:', error)
     ElMessage.error('加载主观题答案失败')

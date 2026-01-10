@@ -89,23 +89,29 @@ class QuestionBase(BaseModel):
         return values
     
     @model_validator(mode="after")
-    def validate_conditional_question(cls, values):
-        values = _prepare_values(values)
-        parent_id = values.get("parent_question_id")
-        trigger_opts = values.get("trigger_options")
+    def validate_conditional_question(self):
+        """
+        验证关联题配置：父题目ID和触发选项必须同时存在或同时为空
+        在mode="after"时，self已经是完整的模型实例
+        """
+        parent_id = self.parent_question_id
+        trigger_opts = self.trigger_options
 
+        # 只有当真正设置了父题目ID（不为None）时才验证触发选项
         if parent_id is not None:
             if not trigger_opts or not isinstance(trigger_opts, list) or len(trigger_opts) == 0:
                 raise ValueError("设置父题目ID时，必须同时指定至少一个触发选项")
-        if trigger_opts is not None:
+        
+        # 只有当真正提供了触发选项（不为空）时才验证父题目ID
+        # 空数组或None都视为未设置，不需要验证
+        if trigger_opts and isinstance(trigger_opts, list) and len(trigger_opts) > 0:
             if not parent_id:
                 raise ValueError("设置触发选项时，必须同时指定父题目ID")
-            if not isinstance(trigger_opts, list) or len(trigger_opts) == 0:
-                raise ValueError("关联题必须指定至少一个触发选项")
             for trigger in trigger_opts:
                 if not isinstance(trigger, dict) or "option_text" not in trigger:
                     raise ValueError("触发条件格式错误，应为[{\"option_text\": \"选项A\"}]")
-        return values
+        
+        return self
     
 # ===== 问题创建模型 =====
 

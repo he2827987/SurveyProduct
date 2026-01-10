@@ -3,9 +3,6 @@ import random
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import text
-
-from backend.app import crud
 from backend.app.database import SessionLocal
 from backend.app.models.survey import Survey
 from backend.app.models.question import Question, QuestionType
@@ -13,7 +10,6 @@ from backend.app.models.survey_question import SurveyQuestion
 from backend.app.models.answer import SurveyAnswer
 from backend.app.models.organization import Organization
 from backend.app.models.department import Department
-from backend.app.schemas.question import QuestionCreate, QuestionUpdate
 
 SURVEY_TITLE = "测试问卷 - 全题型覆盖"
 SURVEY_DESCRIPTION = "用于验证各类题型与组织维度数据的模拟问卷"
@@ -159,40 +155,6 @@ def load_departments_for_org(session, org_id: int) -> List[str]:
     return [f"部门{idx}" for idx in range(1, 4)]
 
 
-def log_question_schema(session):
-    print("Question table structure:")
-    columns = session.execute(text("SHOW FULL COLUMNS FROM questions")).all()
-    for column in columns:
-        print(f" - {column.Field}: type={column.Type}, null={column.Null}, key={column.Key}")
-
-    types = session.execute(text("SELECT DISTINCT `type` FROM questions")).all()
-    print("Current TYPE values:", [row[0] for row in types])
-
-
-def cleanup_invalid_surveys(session):
-    print("Checking for surveys without any questions...")
-    invalid_surveys = (
-        session.query(Survey)
-        .outerjoin(SurveyQuestion)
-        .group_by(Survey.id)
-        .having(func.count(SurveyQuestion.id) == 0)
-        .all()
-    )
-    if not invalid_surveys:
-        print("All surveys have questions.")
-        return
-
-    ids = [survey.id for survey in invalid_surveys]
-    print(f"Found {len(ids)} surveys without questions: {ids}")
-
-    session.query(SurveyAnswer).filter(SurveyAnswer.survey_id.in_(ids)).delete(synchronize_session=False)
-    session.query(SurveyQuestion).filter(SurveyQuestion.survey_id.in_(ids)).delete(synchronize_session=False)
-    for survey in invalid_surveys:
-        session.delete(survey)
-    session.commit()
-    print(f"Deleted {len(ids)} empty surveys.")
-
-
 def clear_existing_data(session):
     existing_survey = session.query(Survey).filter(Survey.title == SURVEY_TITLE).first()
     if existing_survey:
@@ -212,45 +174,28 @@ def clear_existing_data(session):
 def create_questions(session) -> Dict[str, Question]:
     question_map: Dict[str, Question] = {}
     for order, q_def in enumerate(QUESTION_DEFS, start=1):
-        question_payload = {
-            "text": q_def["text"],
-            "type": q_def["type"],
-            "order": order,
-            "is_required": False,
-        }
-        if q_def.get("options") is not None:
-            question_payload["options"] = q_def["options"]
-        if q_def.get("min_score") is not None:
-            question_payload["min_score"] = q_def["min_score"]
-        if q_def.get("max_score") is not None:
-            question_payload["max_score"] = q_def["max_score"]
-        if q_def.get("min_value") is not None:
-            question_payload["min_score"] = q_def["min_value"]
-        if q_def.get("max_value") is not None:
-            question_payload["max_score"] = q_def["max_value"]
-
-        question_create = QuestionCreate(**question_payload)
-        question = crud.create_global_question(session, question_create, CREATED_BY_USER_ID)
+        question = Question(
+            text=q_def["text"],
+            type=q_def["type"],
+            options=json.dumps(q_def.get("options"), ensure_ascii=False) if q_def.get("options") else None,
+            category_id=None,
+            is_required=False,
+            order=order,
+            owner_id=CREATED_BY_USER_ID
+        )
+        session.add(question)
+        session.commit()
+        session.refresh(question)
         question_map[q_def["key"]] = question
 
         parent_key = q_def.get("parent_key")
         if parent_key:
             parent_question = question_map.get(parent_key)
             if parent_question:
-                trigger_options = q_def.get("trigger_options", [])
-                normalized_triggers = []
-                for trigger in trigger_options:
-                    if isinstance(trigger, dict) and "option_text" in trigger:
-                        normalized_triggers.append(trigger)
-                    else:
-                        normalized_triggers.append({"option_text": trigger})
-
-                update_data = QuestionUpdate(
-                    parent_question_id=parent_question.id,
-                    trigger_options=normalized_triggers
-                )
-                question = crud.update_question(session, question.id, update_data)
-                question_map[q_def["key"]] = question
+                question.parent_question_id = parent_question.id
+                question.trigger_options = json.dumps(q_def.get("trigger_options", []), ensure_ascii=False)
+                session.add(question)
+                session.commit()
 
     return question_map
 
@@ -336,8 +281,6 @@ def generate_answers(
 def main():
     session = SessionLocal()
     try:
-        log_question_schema(session)
-        cleanup_invalid_surveys(session)
         organizations = load_active_organizations(session)
         if not organizations:
             print("未找到可用组织，请先创建组织后再运行脚本。")

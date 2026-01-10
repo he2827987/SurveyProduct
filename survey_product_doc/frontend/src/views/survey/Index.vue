@@ -264,6 +264,11 @@
       />
     </el-dialog>
     
+    <SubjectiveAnswersDialog
+      v-model:visible="subjectiveDialog.visible"
+      :survey-id="subjectiveDialog.surveyId"
+      :title="subjectiveDialog.title"
+    />
   </div>
 </template>
 

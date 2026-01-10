@@ -489,7 +489,17 @@
         <el-form-item 
           v-if="questionForm.parent_question_id" 
           label="触发选项"
-          :rules="[{ required: questionForm.parent_question_id !== null, message: '请选择至少一个触发选项' }]"
+          :rules="[{ 
+            required: true, 
+            message: '设置父题目后，必须选择至少一个触发选项',
+            validator: (rule, value, callback) => {
+              if (questionForm.parent_question_id && (!value || value.length === 0)) {
+                callback(new Error('设置父题目后，必须选择至少一个触发选项'))
+              } else {
+                callback()
+              }
+            }
+          }]"
         >
           <el-select 
             v-model="questionForm.trigger_options" 
@@ -1450,29 +1460,16 @@ const moveOptionDown = (index) => {
   }
 }
 
-const questionHasSelectableOptions = (question) => {
-  if (!question || !question.options) return false
-  let opts = question.options
-
-  if (typeof opts === 'string') {
-    try {
-      opts = JSON.parse(opts)
-    } catch (error) {
-      console.warn('解析题目选项失败:', error)
-      return false
-    }
-  }
-
-  return Array.isArray(opts) && opts.length > 0
-}
-
-// 可用的父题目列表（排除当前题目）
+// 可用的父题目列表（排除当前题目和已经是关联题的题目）
 const availableParentQuestions = computed(() => {
   return questionList.value.filter(q => {
+    // 排除当前编辑的题目
     if (questionForm.value.id && q.id === questionForm.value.id) {
       return false
     }
-    return questionHasSelectableOptions(q)
+    // 只显示选择题类型的题目作为父题目（因为需要选项来触发）
+    const qType = mapQuestionTypeForUI(q.type)
+    return qType === 'single' || qType === 'multiple'
   })
 })
 
@@ -1540,21 +1537,18 @@ const saveQuestion = () => {
         
         // 4. 处理关联题字段
         // 将trigger_options转换为后端需要的格式：[{"option_text": "选项A"}]
-        const normalizedTriggerOptions = Array.isArray(payload.trigger_options)
-          ? payload.trigger_options.filter(
-              opt => opt !== null && opt !== undefined && opt !== ''
-            )
-          : []
-
-        if (normalizedTriggerOptions.length > 0) {
-          payload.trigger_options = normalizedTriggerOptions.map(opt => ({
+        if (payload.trigger_options && Array.isArray(payload.trigger_options) && payload.trigger_options.length > 0) {
+          payload.trigger_options = payload.trigger_options.map(opt => ({
             option_text: opt
           }))
         } else {
+          // 如果没有触发选项或为空数组，清空关联题相关字段
           payload.trigger_options = null
-          if (!payload.parent_question_id) {
-            payload.parent_question_id = null
-          }
+        }
+        
+        // 如果没有父题目ID，也清空它
+        if (!payload.parent_question_id) {
+          payload.parent_question_id = null
         }
         
         // 5. 确保 survey_id 为 null 表示存入全局题库

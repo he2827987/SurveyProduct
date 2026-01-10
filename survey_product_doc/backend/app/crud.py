@@ -489,7 +489,7 @@ def create_global_question(db: Session, question: schemas.QuestionCreate, owner_
         models.Question: 创建的问题对象
     """
     # 将Pydantic模型转换为字典，排除unset的字段
-    question_data = question.dict()
+    question_data = question.model_dump()
     tags_data = question_data.pop('tags', []) if 'tags' in question_data else []
 
     question_data['owner_id'] = owner_id

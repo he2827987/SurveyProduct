@@ -35,7 +35,7 @@ def get_survey_stats_by_dimension(
         result_map[key]["count"] += 1
         if ans.total_score is not None:
             result_map[key]["total"] += float(ans.total_score)
-
+    
     result = []
     for k, v in result_map.items():
         count = v["count"]

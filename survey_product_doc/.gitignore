@@ -1,8 +1,65 @@
+# Python
 __pycache__/
 *.pyc
-.DS_Store
-.env
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual Environment
 .venv
 venv/
-*.egg-info/
+ENV/
+env/
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files (敏感信息)
+.env
+
+# 但允许提交环境模板
+!.env.local
+!.env.production
+!.env.example
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Frontend build
+frontend/dist/
+frontend/.vite/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
