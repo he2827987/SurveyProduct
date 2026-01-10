@@ -20,10 +20,15 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str # Pydantic 会自动从 .env 文件或环境变量中查找 OPENROUTER_API_KEY
 
     # 使用 Pydantic V2 的 SettingsConfigDict 来配置
-    # 这会告诉 Pydantic 去哪里找 .env 文件
+    # 在生产环境中优先使用环境变量，在开发环境中使用 .env 文件
+    import os
+    env_files = []
+    if os.getenv("ENVIRONMENT") != "production":
+        env_files = ["backend/.env", ".env", "../backend/.env"]
+
     model_config = SettingsConfigDict(
-        env_file=["backend/.env", ".env", "../backend/.env"],  # 尝试多个路径
-        env_file_encoding="utf-8", # 指定 .env 文件编码
+        env_file=env_files if env_files else None,  # 只在非生产环境使用文件
+        env_file_encoding="utf-8",
         extra="ignore"        # 忽略 .env 中未定义的变量
     )
 

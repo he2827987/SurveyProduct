@@ -10,19 +10,11 @@ services:
     startCommand: cd survey_product_doc && python -m alembic upgrade head && python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        sync: false
+        value: "mysql+pymysql://survey_user:*9Q*GxC34#pSt6S@rm-bp13wfh8dty7f09tplo.mysql.rds.aliyuncs.com:3306/survey_db"
       - key: SECRET_KEY
         generateValue: true
       - key: OPENROUTER_API_KEY
-        sync: false
-      - key: MYSQL_HOST
-        sync: false
-      - key: MYSQL_PORT
-        value: "3306"
-      - key: MYSQL_USER
-        sync: false
-      - key: MYSQL_PASSWORD
-        sync: false
-      - key: MYSQL_DATABASE
-        value: "survey_db"
+        value: "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"
+      - key: ENVIRONMENT
+        value: "production"
     healthCheckPath: /api/v1/health
