@@ -8,6 +8,7 @@
 
 import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '@/components/Layout.vue'
+import { validateAuthToken } from '@/api/request'
 
 // ===== 路由配置 =====
 
@@ -145,6 +146,23 @@ router.beforeEach((to, from, next) => {
       })
       return
     }
+
+    // 异步验证 token 有效性
+    validateAuthToken().then(isValid => {
+      if (!isValid) {
+        // token 无效，已经在 validateAuthToken 中处理了重定向
+        return
+      }
+      // token 有效，继续路由
+      next()
+    }).catch(() => {
+      // 验证失败，跳转到登录页
+      next({
+        path: '/login',
+        query: { redirect: to.fullPath }
+      })
+    })
+    return
   }
 
   next()

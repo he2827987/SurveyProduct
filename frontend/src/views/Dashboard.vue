@@ -129,8 +129,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeMount } from 'vue'
 import { useRouter } from 'vue-router'
+import { validateAuthToken } from '@/api/request'
 import { 
   User, 
   Document, 
@@ -213,9 +214,21 @@ const recentSurveys = ref([
   }
 ])
 
+// 在组件挂载前验证 token
+onBeforeMount(async () => {
+  const isValid = await validateAuthToken()
+  if (!isValid) {
+    // token 无效，已经在 validateAuthToken 中处理了重定向
+    return
+  }
+
+  // token 有效，继续加载数据
+  getDashboardData()
+})
+
 // 页面加载时获取数据
 onMounted(() => {
-  getDashboardData()
+  // 数据已经在 onBeforeMount 中加载，这里可以添加其他初始化逻辑
 })
 
 // 获取仪表盘数据
