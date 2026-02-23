@@ -10,7 +10,7 @@ services:
     startCommand: cd survey_product_doc && python -m alembic upgrade head && python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        value: "postgresql://surveyproduct_db_user:1RkIHhdeJ4NzEwUPj9uWJLsl9y981jhD@dpg-d6e354npm1nc73a62u9g-a/surveyproduct_db"
+        value: "postgresql://surveyproduct_db_user:1RkIHhdeJ4NzEwUPj9uWJLsl9y981jhD@dpg-d6e354npm1nc73a62u9g-a.oregon-postgres.render.com:5432/surveyproduct_db?sslmode=require"
       - key: SECRET_KEY
         generateValue: true
       - key: OPENROUTER_API_KEY

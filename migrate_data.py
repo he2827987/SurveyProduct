@@ -32,7 +32,8 @@ POSTGRES_CONFIG = {
     'port': 5432,
     'user': 'surveyproduct_db_user',
     'password': '1RkIHhdeJ4NzEwUPj9uWJLsl9y981jhD',
-    'database': 'surveyproduct_db'
+    'database': 'surveyproduct_db',
+    'sslmode': 'require'
 }
 
 # 表迁移顺序（考虑外键依赖）
@@ -107,7 +108,9 @@ def connect_mysql():
 def connect_postgresql():
     """连接PostgreSQL数据库"""
     try:
-        connection = psycopg2.connect(**POSTGRES_CONFIG)
+        # 创建连接字符串
+        conn_str = f"postgresql://{POSTGRES_CONFIG['user']}:{POSTGRES_CONFIG['password']}@{POSTGRES_CONFIG['host']}:{POSTGRES_CONFIG['port']}/{POSTGRES_CONFIG['database']}?sslmode={POSTGRES_CONFIG.get('sslmode', 'prefer')}"
+        connection = psycopg2.connect(conn_str)
         print("✓ 成功连接到PostgreSQL数据库")
         return connection
     except Exception as e:

@@ -5,7 +5,7 @@ import os
 
 class Settings(BaseSettings):
     # 数据库配置
-    DATABASE_URL: str = "postgresql://surveyproduct_db_user:1RkIHhdeJ4NzEwUPj9uWJLsl9y981jhD@dpg-d6e354npm1nc73a62u9g-a/surveyproduct_db"
+    DATABASE_URL: str = "postgresql://surveyproduct_db_user:1RkIHhdeJ4NzEwUPj9uWJLsl9y981jhD@dpg-d6e354npm1nc73a62u9g-a.oregon-postgres.render.com:5432/surveyproduct_db?sslmode=require"
     # 或者更简洁地写成
     # DATABASE_URL: str
 
