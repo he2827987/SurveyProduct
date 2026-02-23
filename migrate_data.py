@@ -28,11 +28,11 @@ MYSQL_CONFIG = {
 }
 
 POSTGRES_CONFIG = {
-    'host': 'localhost',
+    'host': 'dpg-d6e354npm1nc73a62u9g-a.oregon-postgres.render.com',
     'port': 5432,
-    'user': 'postgres',
-    'password': 'password',  # 请填入PostgreSQL密码
-    'database': 'survey_db'
+    'user': 'surveyproduct_db_user',
+    'password': '1RkIHhdeJ4NzEwUPj9uWJLsl9y981jhD',
+    'database': 'surveyproduct_db'
 }
 
 # 表迁移顺序（考虑外键依赖）
