@@ -5,8 +5,9 @@ starlette==0.46.2
 
 # 数据库相关
 SQLAlchemy==2.0.41
-PyMySQL==1.1.1
+psycopg2-binary==2.9.9
 alembic==1.16.3
+PyMySQL==1.1.1
 
 # 数据验证和配置
 pydantic==2.11.7
