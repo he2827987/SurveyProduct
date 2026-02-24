@@ -4,10 +4,9 @@ from datetime import timedelta
 import os
 
 class Settings(BaseSettings):
-    # 数据库配置
-    DATABASE_URL: str = "postgresql://surveyproduct_db_user:1RkIHhdeJ4NzEwUPj9uWJLsl9y981jhD@dpg-d6e354npm1nc73a62u9g-a.oregon-postgres.render.com:5432/surveyproduct_db?sslmode=require"
-    # 或者更简洁地写成
-    # DATABASE_URL: str
+    # 数据库配置 - 使用环境变量
+    DATABASE_URL: str = "postgresql://localhost:5432/survey_db"  # 本地开发默认值
+    # 在生产环境中，Render会自动设置 DATABASE_URL 环境变量
 
     # JWT 配置
     SECRET_KEY: str = "anata-dake-wo-oboe-te-iru-kumo-no-kage-ga-nagere-te-yuku-kotoba-dake-ga-afure-te-iru-omoide-ha-natsukaze-yurare-nagara" # 生产环境中请务必使用强随机密钥
@@ -16,8 +15,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     # LLM 配置
-    # OPENROUTER_API_KEY: str = os.getenv("sk-or-v1-...", "") # 错误的写法
-    OPENROUTER_API_KEY: str # Pydantic 会自动从 .env 文件或环境变量中查找 OPENROUTER_API_KEY
+    OPENROUTER_API_KEY: str = ""  # 必须从环境变量获取
 
     # 使用 Pydantic V2 的 SettingsConfigDict 来配置
     # 这会告诉 Pydantic 去哪里找 .env 文件
@@ -53,8 +51,9 @@ load_env_manually()
 settings = Settings()
 
 # --- 调试信息 ---
-# 为了确认 settings 是否加载成功，可以在实例化后打印
-api_key_preview = settings.OPENROUTER_API_KEY[:10] + "..." if len(settings.OPENROUTER_API_KEY) > 10 else "Too_Short/Empty"
-print(f"[Config Module] Final settings.OPENROUTER_API_KEY (preview): {api_key_preview}")
-print(f"[Config Module] DATABASE_URL: {settings.DATABASE_URL}")
+# 生产环境中可以关闭调试信息，但本地开发时有用
+if os.getenv("ENVIRONMENT") != "production":
+    api_key_preview = settings.OPENROUTER_API_KEY[:10] + "..." if len(settings.OPENROUTER_API_KEY) > 10 else "Too_Short/Empty"
+    print(f"[Config Module] Final settings.OPENROUTER_API_KEY (preview): {api_key_preview}")
+    print(f"[Config Module] DATABASE_URL: {settings.DATABASE_URL}")
 # --- 调试信息结束 ---

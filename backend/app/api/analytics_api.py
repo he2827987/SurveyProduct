@@ -19,6 +19,8 @@ from backend.app.models.participant import Participant
 from backend.app.models.department import Department
 from backend.app.models.organization import Organization
 from backend.app.models.organization_member import OrganizationMember
+from backend.app.models.tag import Tag
+from backend.app.models.category import Category
 
 from backend.app.services import llm_service
 
@@ -1020,3 +1022,294 @@ async def generate_enterprise_comparison_ai(
             "generated_at": datetime.now().isoformat(),
             "comparison_analysis": f"由于LLM服务暂时不可用，无法生成企业对比AI分析。错误信息：{str(e)}\n\n请检查LLM服务配置或稍后重试。"
         }
+
+
+# ===== 标签统计功能 =====
+
+@router.get("/organizations/{organization_id}/analytics/tags")
+async def get_organization_tag_analytics(
+    organization_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取组织内所有标签的统计信息"""
+    
+    # 获取组织内所有问题及其标签
+    questions = db.query(Question).filter(Question.organization_id == organization_id).all()
+    
+    tag_stats = {}
+    total_questions = len(questions)
+    
+    # 统计每个标签的问题数量
+    for question in questions:
+        if question.tags:
+            for tag in question.tags:
+                if tag.id not in tag_stats:
+                    tag_stats[tag.id] = {
+                        "tag_id": tag.id,
+                        "tag_name": tag.name,
+                        "tag_color": tag.color,
+                        "question_count": 0,
+                        "questions": []
+                    }
+                
+                tag_stats[tag.id]["question_count"] += 1
+                tag_stats[tag.id]["questions"].append({
+                    "question_id": question.id,
+                    "question_text": question.text[:100] + "..." if len(question.text) > 100 else question.text,
+                    "question_type": question.type.value if hasattr(question.type, 'value') else str(question.type)
+                })
+    
+    # 计算百分比
+    for tag_id in tag_stats:
+        if total_questions > 0:
+            tag_stats[tag_id]["percentage"] = round((tag_stats[tag_id]["question_count"] / total_questions) * 100, 2)
+        else:
+            tag_stats[tag_id]["percentage"] = 0
+    
+    return {
+        "organization_id": organization_id,
+        "total_questions": total_questions,
+        "total_tags": len(tag_stats),
+        "tag_statistics": list(tag_stats.values())
+    }
+
+
+@router.get("/organizations/{organization_id}/surveys/{survey_id}/analytics/tags")
+async def get_survey_tag_analytics(
+    organization_id: int,
+    survey_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取特定调研的标签统计分析"""
+    
+    # 验证调研属于该组织
+    survey = db.query(Survey).filter(
+        and_(
+            Survey.id == survey_id,
+            Survey.organization_id == organization_id
+        )
+    ).first()
+    
+    if not survey:
+        raise HTTPException(status_code=404, detail="调研不存在")
+    
+    # 获取调研的所有问题
+    survey_questions = db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey_id).all()
+    questions = []
+    for sq in survey_questions:
+        question = db.query(Question).filter(Question.id == sq.question_id).first()
+        if question:
+            questions.append(question)
+    
+    # 获取调研的所有回答
+    answers = db.query(SurveyAnswer).filter(SurveyAnswer.survey_id == survey_id).all()
+    
+    # 统计每个标签的数据
+    tag_analytics = {}
+    
+    for question in questions:
+        if question.tags:
+            for tag in question.tags:
+                if tag.id not in tag_analytics:
+                    tag_analytics[tag.id] = {
+                        "tag_id": tag.id,
+                        "tag_name": tag.name,
+                        "tag_color": tag.color,
+                        "questions": [],
+                        "total_responses": 0,
+                        "response_analysis": {}
+                    }
+                
+                question_data = {
+                    "question_id": question.id,
+                    "question_text": question.text,
+                    "question_type": question.type.value if hasattr(question.type, 'value') else str(question.type),
+                    "responses": 0,
+                    "response_distribution": {}
+                }
+                
+                # 统计该问题的回答
+                question_response_count = 0
+                for answer in answers:
+                    try:
+                        answer_data = json.loads(answer.answers) if isinstance(answer.answers, str) else answer.answers
+                        if str(question.id) in answer_data:
+                            question_response_count += 1
+                            response = answer_data[str(question.id)]
+                            
+                            if question.type.value in ['SINGLE_CHOICE', 'MULTI_CHOICE']:
+                                if isinstance(response, list):
+                                    for choice in response:
+                                        if choice in question_data["response_distribution"]:
+                                            question_data["response_distribution"][choice] += 1
+                                        else:
+                                            question_data["response_distribution"][choice] = 1
+                                else:
+                                    if response in question_data["response_distribution"]:
+                                        question_data["response_distribution"][response] += 1
+                                    else:
+                                        question_data["response_distribution"][response] = 1
+                            elif question.type.value in ['TEXT_INPUT', 'NUMBER_INPUT']:
+                                if response and str(response).strip():
+                                    question_data["response_distribution"]["有回答"] = question_data["response_distribution"].get("有回答", 0) + 1
+                                else:
+                                    question_data["response_distribution"]["无回答"] = question_data["response_distribution"].get("无回答", 0) + 1
+                    except (json.JSONDecodeError, KeyError, TypeError):
+                        continue
+                
+                question_data["responses"] = question_response_count
+                tag_analytics[tag.id]["questions"].append(question_data)
+                tag_analytics[tag.id]["total_responses"] += question_response_count
+    
+    # 计算每个标签的统计分析
+    for tag_id in tag_analytics:
+        tag_data = tag_analytics[tag_id]
+        if tag_data["questions"]:
+            avg_responses_per_question = tag_data["total_responses"] / len(tag_data["questions"])
+            tag_data["average_responses_per_question"] = round(avg_responses_per_question, 2)
+        else:
+            tag_data["average_responses_per_question"] = 0
+        
+        # 汇总所有问题的响应分布
+        total_distribution = {}
+        for question in tag_data["questions"]:
+            for choice, count in question["response_distribution"].items():
+                if choice in total_distribution:
+                    total_distribution[choice] += count
+                else:
+                    total_distribution[choice] = count
+        
+        tag_data["total_response_distribution"] = total_distribution
+    
+    return {
+        "survey_id": survey_id,
+        "survey_title": survey.title,
+        "organization_id": organization_id,
+        "total_questions": len(questions),
+        "total_tags": len(tag_analytics),
+        "tag_analytics": list(tag_analytics.values())
+    }
+
+
+@router.get("/organizations/{organization_id}/analytics/tags/summary")
+async def get_organization_tag_summary(
+    organization_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取组织标签汇总统计，用于展示同类题目分数统计"""
+    
+    # 获取组织内所有调研
+    surveys = db.query(Survey).filter(Survey.organization_id == organization_id).all()
+    
+    tag_summary = {}
+    total_surveys = len(surveys)
+    
+    # 统计每个标签在所有调研中的表现
+    for survey in surveys:
+        # 获取调研的所有问题
+        survey_questions = db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey.id).all()
+        questions = []
+        for sq in survey_questions:
+            question = db.query(Question).filter(Question.id == sq.question_id).first()
+            if question:
+                questions.append(question)
+        
+        # 获取调研的所有回答
+        answers = db.query(SurveyAnswer).filter(SurveyAnswer.survey_id == survey.id).all()
+        
+        for question in questions:
+            if question.tags:
+                for tag in question.tags:
+                    if tag.id not in tag_summary:
+                        tag_summary[tag.id] = {
+                            "tag_id": tag.id,
+                            "tag_name": tag.name,
+                            "tag_color": tag.color,
+                            "total_questions": 0,
+                            "total_responses": 0,
+                            "surveys_count": 0,
+                            "score_stats": {
+                                "total_score": 0,
+                                "max_possible_score": 0,
+                                "average_score": 0,
+                                "score_distribution": {}
+                            }
+                        }
+                    
+                    tag_summary[tag.id]["total_questions"] += 1
+                    tag_summary[tag.id]["surveys_count"] += 1
+                    
+                    # 分析该问题的回答和分数
+                    question_responses = 0
+                    question_total_score = 0
+                    question_max_score = 0
+                    
+                    # 获取问题选项和分值
+                    options = []
+                    if question.options:
+                        try:
+                            options = json.loads(question.options) if isinstance(question.options, str) else question.options
+                        except (json.JSONDecodeError, TypeError):
+                            options = []
+                    
+                    # 计算最大可能分数
+                    max_score_per_option = 0
+                    for option in options:
+                        if isinstance(option, dict) and "score" in option:
+                            max_score_per_option = max(max_score_per_option, option["score"])
+                    
+                    for answer in answers:
+                        try:
+                            answer_data = json.loads(answer.answers) if isinstance(answer.answers, str) else answer.answers
+                            if str(question.id) in answer_data:
+                                response = answer_data[str(question.id)]
+                                question_responses += 1
+                                
+                                # 计算分数
+                                if question.type.value == 'SINGLE_CHOICE' and options:
+                                    for option in options:
+                                        if isinstance(option, dict) and "text" in option and "score" in option:
+                                            if response == option["text"]:
+                                                question_total_score += option["score"]
+                                                break
+                                
+                                elif question.type.value == 'MULTI_CHOICE' and options:
+                                    if isinstance(response, list):
+                                        for selected_option in response:
+                                            for option in options:
+                                                if isinstance(option, dict) and "text" in option and "score" in option:
+                                                    if selected_option == option["text"]:
+                                                        question_total_score += option["score"]
+                                                        break
+                        except (json.JSONDecodeError, KeyError, TypeError):
+                            continue
+                    
+                    if question_responses > 0:
+                        question_max_score = max_score_per_option * question_responses
+                        tag_summary[tag.id]["total_responses"] += question_responses
+                        tag_summary[tag.id]["score_stats"]["total_score"] += question_total_score
+                        tag_summary[tag.id]["score_stats"]["max_possible_score"] += question_max_score
+                        
+                        # 分数分布统计
+                        avg_score = question_total_score / question_responses
+                        score_range = f"{int(avg_score)}-{int(avg_score) + 1}"
+                        if score_range in tag_summary[tag.id]["score_stats"]["score_distribution"]:
+                            tag_summary[tag.id]["score_stats"]["score_distribution"][score_range] += 1
+                        else:
+                            tag_summary[tag.id]["score_stats"]["score_distribution"][score_range] = 1
+    
+    # 计算平均分
+    for tag_id in tag_summary:
+        if tag_summary[tag_id]["score_stats"]["max_possible_score"] > 0:
+            avg_score = (tag_summary[tag_id]["score_stats"]["total_score"] / 
+                        tag_summary[tag_id]["score_stats"]["max_possible_score"]) * 100
+            tag_summary[tag_id]["score_stats"]["average_score"] = round(avg_score, 2)
+        else:
+            tag_summary[tag_id]["score_stats"]["average_score"] = 0
+    
+    return {
+        "organization_id": organization_id,
+        "total_surveys": total_surveys,
+        "total_tags": len(tag_summary),
+        "tag_summary": list(tag_summary.values())
+    }

@@ -297,6 +297,53 @@ export function getLineScores(surveyId, params = {}) {
   return request.get(`/analysis/survey/${surveyId}/line`, { params })
 }
 
+// ===== 标签统计分析API =====
+
+/**
+ * 获取组织标签统计分析
+ * @param {number} organizationId - 组织ID
+ * @returns {Promise<Object>} 标签统计数据
+ */
+export function getOrganizationTagAnalytics(organizationId) {
+  return request.get(`/organizations/${organizationId}/analytics/tags`)
+}
+
+/**
+ * 获取特定调研的标签统计分析
+ * @param {number} organizationId - 组织ID
+ * @param {number} surveyId - 调研ID
+ * @returns {Promise<Object>} 调研标签统计数据
+ */
+export function getSurveyTagAnalytics(organizationId, surveyId) {
+  return request.get(`/organizations/${organizationId}/surveys/${surveyId}/analytics/tags`)
+}
+
+/**
+ * 获取组织标签汇总统计（用于同类题目分数统计）
+ * @param {number} organizationId - 组织ID
+ * @returns {Promise<Object>} 标签汇总统计数据
+ */
+export function getOrganizationTagSummary(organizationId) {
+  return request.get(`/organizations/${organizationId}/analytics/tags/summary`)
+}
+
+/**
+ * 获取组织列表（用于标签分析）
+ * @returns {Promise<Array>} 组织列表
+ */
+export function getOrganizations() {
+  return request.get('/organizations/')
+}
+
+/**
+ * 获取组织调研列表（用于标签分析）
+ * @param {number} organizationId - 组织ID
+ * @returns {Promise<Array>} 调研列表
+ */
+export function getOrganizationSurveys(organizationId) {
+  return request.get(`/organizations/${organizationId}/surveys/`)
+}
+
 export function getPieOptionDistribution(surveyId, params = {}) {
   return request.get(`/analysis/survey/${surveyId}/pie`, { params })
 }

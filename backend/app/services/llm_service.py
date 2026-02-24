@@ -8,6 +8,8 @@ from typing import List, Optional, Dict, Any
 import httpx
 from ..config import settings
 import json
+from datetime import datetime
+import statistics
 
 # --- 终极调试：在模块加载时打印 ---
 # 这行会在该模块第一次被导入时执行
@@ -213,72 +215,219 @@ async def generate_survey_summary(survey_data: Dict[str, Any], model: str = DEFA
         Dict[str, Any]: 包含总结报告的字典。
     """
     try:
-        # 构造调研总结的Prompt
+        # 提取关键数据
+        survey_title = survey_data.get('survey_title', '未知调研')
+        total_answers = survey_data.get('total_answers', 0)
+        question_analytics = survey_data.get('question_analytics', [])
+        participant_analysis = survey_data.get('participant_analysis', {})
+        participation_rate = survey_data.get('participation_rate', 0)
+        
+        # 数据预处理和分析
+        question_types = {}
+        response_rates = []
+        satisfaction_scores = []
+        key_insights = []
+        
+        for question in question_analytics:
+            q_type = question.get('question_type', '')
+            question_types[q_type] = question_types.get(q_type, 0) + 1
+            
+            # 计算响应率
+            total_responses = question.get('total_responses', 0)
+            response_rates.append(total_responses)
+            
+            # 分析回答分布，提取关键洞察
+            response_dist = question.get('response_distribution', {})
+            if response_dist and isinstance(response_dist, dict):
+                # 识别最高频回答
+                max_answer = max(response_dist.items(), key=lambda x: x[1]) if response_dist else None
+                if max_answer:
+                    key_insights.append({
+                        "question": question.get('question_text', ''),
+                        "most_common": max_answer[0],
+                        "count": max_answer[1]
+                    })
+        
+        # 构造更智能的提示词
         prompt = f"""
-你是一个专业的数据分析师和调研专家。请根据以下调研数据生成一份全面的智能总结报告。
+你是一个资深的数据分析师和调研专家，拥有丰富的行业经验和洞察力。请基于以下调研数据，生成一份深度分析报告。
 
-调研基本信息：
-- 调研标题：{survey_data.get('survey_title', '未知')}
-- 总答案数：{survey_data.get('total_answers', 0)}
-- 问题数量：{len(survey_data.get('question_analytics', []))}
+## 调研背景信息
+- 调研主题：{survey_title}
+- 收集答案总数：{total_answers}
+- 问题总数：{len(question_analytics)}
+- 问题类型分布：{question_types}
+- 参与率：{participation_rate:.2f}%
 
-问题分析数据：
+## 深度分析数据
+
+### 问题详细数据：
 """
         
-        # 添加每个问题的分析数据
-        for i, question in enumerate(survey_data.get('question_analytics', []), 1):
+        # 添加每个问题的详细分析数据
+        for i, question in enumerate(question_analytics, 1):
+            question_text = question.get('question_text', '')
+            question_type = question.get('question_type', '')
+            total_responses = question.get('total_responses', 0)
+            response_distribution = question.get('response_distribution', {})
+            options = question.get('options', [])
+            
             prompt += f"""
-问题{i}：{question.get('question_text', '')}
-- 问题类型：{question.get('question_type', '')}
-- 回答数：{question.get('total_responses', 0)}
-- 回答分布：{question.get('response_distribution', {})}
+#### 问题{i}: {question_text}
+- **类型**: {question_type}
+- **回答总数**: {total_responses}
+- **回答分布**: {response_distribution}
+- **选项列表**: {options}
 """
+            
+            # 如果是评分题，添加分数分析
+            if question_type in ['rating', 'scale'] and response_distribution:
+                try:
+                    # 尝试提取数字评分
+                    scores = []
+                    for key, value in response_distribution.items():
+                        if key.replace('.', '').isdigit():
+                            scores.extend([float(key)] * int(value))
+                    if scores:
+                        avg_score = sum(scores) / len(scores)
+                        prompt += f"- **平均分**: {avg_score:.2f}\n"
+                        satisfaction_scores.append(avg_score)
+                except Exception:
+                    pass
         
         # 添加参与者分析数据
-        participant_analysis = survey_data.get('participant_analysis', {})
         if participant_analysis:
-            prompt += f"""
-参与者分析：
-- 总参与者：{participant_analysis.get('total_participants', 0)}
-- 按部门分布：{participant_analysis.get('by_department', {})}
-- 按职位分布：{participant_analysis.get('by_position', {})}
+            participant_breakdown = []
+            
+            # 部门分析
+            by_dept = participant_analysis.get('by_department', {})
+            if by_dept:
+                dept_analysis = []
+                for dept, count in by_dept.items():
+                    dept_analysis.append(f"{dept} ({count}人)")
+                participant_breakdown.append(f"按部门: {', '.join(dept_analysis)}")
+            
+            # 职位分析
+            by_position = participant_analysis.get('by_position', {})
+            if by_position:
+                pos_analysis = []
+                for pos, count in by_position.items():
+                    pos_analysis.append(f"{pos} ({count}人)")
+                participant_breakdown.append(f"按职位: {', '.join(pos_analysis)}")
+            
+            if participant_breakdown:
+                prompt += f"""
+### 参与者结构分析
+- 总参与人数：{participant_analysis.get('total_participants', 0)}
+- 参与者分布：{"; ".join(participant_breakdown)}
 """
         
+        # 添加关键洞察预分析
+        if key_insights:
+            prompt += "\n### 初步关键发现\n"
+            for insight in key_insights:
+                prompt += f"- **{insight['question']}**: 最常见回答是 '{insight['most_common']}' ({insight['count']}次)\n"
+        
+        # 添加整体满意度分析（如果有评分数据）
+        if satisfaction_scores:
+            overall_satisfaction = sum(satisfaction_scores) / len(satisfaction_scores)
+            prompt += f"\n### 整体满意度评分: {overall_satisfaction:.2f}\n"
+        
         prompt += """
-请生成一份专业的调研总结报告，包含以下部分：
 
-1. **执行摘要**：简要概述调研的主要发现和关键结论
-2. **参与情况分析**：分析参与者的分布和参与度
-3. **问题分析**：对每个重要问题的回答进行深入分析
-4. **关键发现**：总结最重要的发现和洞察
-5. **建议和行动方案**：基于调研结果提出具体的改进建议
-6. **数据质量评估**：评估数据的可靠性和代表性
+## 分析要求
+请基于以上数据，生成一份结构化、深入的分析报告，必须包含以下部分：
 
-请使用专业、客观的语言，确保报告结构清晰，内容准确。每个部分请用标题分隔，便于阅读。
+### 1. 执行摘要
+- 用3-5个要点总结最重要的发现和结论
+- 突出关键趋势和异常情况
+
+### 2. 参与情况深度分析
+- 评估样本代表性和数据质量
+- 分析参与度影响因素
+- 识别潜在的参与偏差
+
+### 3. 问题专项分析
+- 按问题类型分组分析
+- 识别回答模式和异常
+- 对比分析不同问题的相关性
+
+### 4. 关键发现与洞察
+- 列出5-7个最重要的发现
+- 每个发现都要有数据支撑
+- 识别潜在的根本原因
+
+### 5. 情感与态度分析
+- 基于回答内容分析整体情感倾向
+- 识别热点问题和敏感话题
+- 评估受访者的整体态度
+
+### 6. 改进建议与行动计划
+- 提供具体、可操作的改进建议
+- 按优先级排序（高/中/低）
+- 包含短期和长期行动计划
+
+### 7. 风险评估与机遇
+- 识别潜在风险点
+- 发现改进机遇
+- 提供风险缓解策略
+
+请确保分析：
+- 基于数据，避免主观臆测
+- 结构清晰，逻辑严密
+- 语言专业但不晦涩
+- 每个结论都有数据支撑
+- 建议具体且可执行
+
+输出格式要求使用Markdown格式，标题层级清晰，便于阅读和理解。
 """
 
         # 调用LLM生成总结
+        logger.info(f"开始生成调研 '{survey_title}' 的智能总结报告...")
         summary_text = await _call_openrouter(prompt, model=model)
         
-        # 构造返回结果
+        # 构造结构化的返回结果
+        current_time = datetime.now().isoformat()
+        
+        # 计算附加指标
+        total_questions = len(question_analytics)
+        avg_responses_per_question = sum(response_rates) / total_questions if total_questions > 0 else 0
+        
         result = {
-            "survey_title": survey_data.get('survey_title', ''),
-            "total_answers": survey_data.get('total_answers', 0),
-            "generated_at": "2025-08-19T10:00:00Z",  # 这里应该使用实际时间
+            "survey_title": survey_title,
+            "total_answers": total_answers,
+            "generated_at": current_time,
             "summary": summary_text,
-            "key_metrics": {
-                "total_questions": len(survey_data.get('question_analytics', [])),
+            "analysis_metadata": {
+                "total_questions": total_questions,
                 "total_participants": participant_analysis.get('total_participants', 0),
-                "participation_rate": survey_data.get('participation_rate', 0)
+                "participation_rate": round(participation_rate, 2),
+                "question_types": question_types,
+                "avg_responses_per_question": round(avg_responses_per_question, 2),
+                "data_quality_score": min(100, participation_rate * 2),  # 简单的数据质量评分
+                "analysis_version": "2.0"  # 版本标识
+            },
+            "key_metrics": {
+                "total_questions": total_questions,
+                "total_participants": participant_analysis.get('total_participants', 0),
+                "participation_rate": round(participation_rate, 2),
+                "overall_satisfaction": round(sum(satisfaction_scores) / len(satisfaction_scores), 2) if satisfaction_scores else None
+            },
+            "highlights": {
+                "top_insights": key_insights[:3],  # 前3个关键洞察
+                "question_response_summary": {qt: count for qt, count in question_types.items()},
+                "data_completeness": f"{(total_answers / (total_questions * participant_analysis.get('total_participants', 1))) * 100:.1f}%" if participant_analysis.get('total_participants', 0) > 0 else "N/A"
             }
         }
         
-        logger.info(f"为调研 '{survey_data.get('survey_title', '')}' 生成了智能总结报告。")
+        logger.info(f"成功生成调研 '{survey_title}' 的智能总结报告，总长度: {len(summary_text)} 字符")
         return result
         
     except Exception as e:
         logger.exception(f"生成调研总结时失败: {e}")
-        raise RuntimeError(f"生成调研总结失败: {e}") from e
+        # 提供更详细的错误信息
+        error_details = f"错误类型: {type(e).__name__}, 错误信息: {str(e)}"
+        raise RuntimeError(f"生成调研总结失败: {error_details}") from e
 
 async def generate_question_insights(question_data: Dict[str, Any], model: str = DEFAULT_MODEL) -> Dict[str, Any]:
     """
@@ -292,44 +441,180 @@ async def generate_question_insights(question_data: Dict[str, Any], model: str =
         Dict[str, Any]: 包含问题洞察的字典。
     """
     try:
+        # 提取并预处理数据
+        question_text = question_data.get('question_text', '')
+        question_type = question_data.get('question_type', '')
+        total_responses = question_data.get('total_responses', 0)
+        response_distribution = question_data.get('response_distribution', {})
+        options = question_data.get('options', [])
+        
+        # 数据分析预处理
+        analysis_metadata = {}
+        
+        # 分析回答分布
+        if response_distribution and isinstance(response_distribution, dict):
+            total_count = sum(response_distribution.values())
+            most_common = max(response_distribution.items(), key=lambda x: x[1]) if response_distribution else None
+            least_common = min(response_distribution.items(), key=lambda x: x[1]) if response_distribution else None
+            
+            # 计算分布的集中度（基尼系数的简化版本）
+            if total_count > 0:
+                proportions = [count/total_count for count in response_distribution.values()]
+                concentration = sum(p**2 for p in proportions)  # 集中度指数，越高表示分布越集中
+                analysis_metadata['concentration'] = round(concentration, 3)
+                
+                # 识别异常值（占比显著高于/低于平均的回答）
+                avg_proportion = 1/len(response_distribution) if len(response_distribution) > 0 else 0
+                outliers = []
+                for answer, count in response_distribution.items():
+                    proportion = count/total_count
+                    if proportion > avg_proportion * 2:  # 显著高于平均
+                        outliers.append({"answer": answer, "proportion": round(proportion, 3), "type": "high"})
+                    elif proportion < avg_proportion * 0.5:  # 显著低于平均
+                        outliers.append({"answer": answer, "proportion": round(proportion, 3), "type": "low"})
+                analysis_metadata['outliers'] = outliers
+            
+            analysis_metadata['most_common'] = {"answer": most_common[0], "count": most_common[1]} if most_common else None
+            analysis_metadata['least_common'] = {"answer": least_common[0], "count": least_common[1]} if least_common else None
+            analysis_metadata['total_responses'] = total_count
+        
+        # 如果是评分题，计算分数统计
+        score_analysis = {}
+        if question_type in ['rating', 'scale'] and response_distribution:
+            try:
+                scores = []
+                for key, value in response_distribution.items():
+                    if key.replace('.', '').replace('-', '').isdigit():
+                        scores.extend([float(key)] * int(value))
+                
+                if scores:
+                    score_analysis = {
+                        "mean": round(statistics.mean(scores), 2),
+                        "median": round(statistics.median(scores), 2),
+                        "mode": round(statistics.mode(scores), 2) if len(set(scores)) < len(scores) else None,
+                        "stdev": round(statistics.stdev(scores), 2) if len(scores) > 1 else 0,
+                        "min_score": min(scores),
+                        "max_score": max(scores),
+                        "score_range": max(scores) - min(scores)
+                    }
+                    analysis_metadata['score_analysis'] = score_analysis
+            except Exception as e:
+                logger.warning(f"分数分析失败: {e}")
+        
+        # 构造更智能的提示词
         prompt = f"""
-你是一个专业的数据分析师。请对以下调研问题进行深度洞察分析。
+你是一位资深的数据分析专家和行为心理学研究员，擅长从调研数据中发现深层含义和行为模式。请对以下问题进行全方位的深度分析。
 
-问题信息：
-- 问题文本：{question_data.get('question_text', '')}
-- 问题类型：{question_data.get('question_type', '')}
-- 总回答数：{question_data.get('total_responses', 0)}
-- 回答分布：{question_data.get('response_distribution', {})}
-- 选项列表：{question_data.get('options', [])}
+## 问题基本信息
+- **问题文本**: {question_text}
+- **问题类型**: {question_type}
+- **总回答数**: {total_responses}
 
-请提供以下分析：
+## 回答数据分析
+- **回答分布**: {response_distribution}
+- **选项列表**: {options}
 
-1. **回答模式分析**：分析回答的分布模式和特点
-2. **关键洞察**：识别回答中的关键发现和趋势
-3. **异常发现**：指出任何异常或值得注意的回答模式
-4. **改进建议**：基于分析结果提出改进建议
-5. **后续行动**：建议下一步的行动方案
+## 预分析数据
+"""
+        
+        # 添加预分析结果
+        if analysis_metadata:
+            prompt += "### 关键统计指标\n"
+            for key, value in analysis_metadata.items():
+                if key != 'outliers':  # 异常值单独处理
+                    prompt += f"- **{key}**: {value}\n"
+            
+            # 处理异常值
+            if 'outliers' in analysis_metadata and analysis_metadata['outliers']:
+                prompt += "\n### 异常回答模式\n"
+                for outlier in analysis_metadata['outliers']:
+                    outlier_type = "显著高于平均" if outlier['type'] == 'high' else "显著低于平均"
+                    prompt += f"- **{outlier['answer']}**: 占比 {outlier['proportion']*100:.1f}% ({outlier_type})\n"
+        
+        # 添加分数分析
+        if score_analysis:
+            prompt += "\n### 分数统计\n"
+            for key, value in score_analysis.items():
+                prompt += f"- **{key}**: {value}\n"
+        
+        prompt += """
 
-请使用清晰、专业的中文进行分析，确保分析准确且有洞察力。
+## 分析要求
+请提供以下六个维度的深度分析，每个分析都要基于数据、有洞察力、具有实用价值：
+
+### 1. 回答模式与分布特征
+- 分析回答分布的形状和特点（集中/分散/偏态等）
+- 识别主流观点和少数派意见
+- 分析不同选项之间的关联性
+
+### 2. 行为与心理洞察
+- 基于回答分析受访者的心理状态和行为动机
+- 识别潜在的情绪倾向和态度模式
+- 分析回答背后的深层原因
+
+### 3. 异常值与特殊发现
+- 深入分析异常回答的原因和含义
+- 识别数据中的"惊喜"或意外发现
+- 分析极端回答代表的意义
+
+### 4. 业务影响与风险评估
+- 评估这个问题反映的业务状况
+- 识别潜在的风险点和机会
+- 分析对业务决策的影响
+
+### 5. 改进建议与行动方案
+- 提供具体、可操作的改进建议
+- 建议后续的跟进措施
+- 提出优化问题的建议
+
+### 6. 关键洞察总结
+- 用3-5个要点总结最重要的发现
+- 每个洞察都要有数据支撑
+- 提供决策建议的优先级
+
+## 输出要求
+- 使用Markdown格式，结构清晰
+- 每个部分都有数据支撑，避免主观臆测
+- 语言专业但不晦涩，便于业务理解
+- 突出实用性和可操作性
+- 使用表情符号和格式化增强可读性
+
+请开始你的分析：
 """
 
+        # 调用LLM生成洞察
+        logger.info(f"开始生成问题 '{question_text[:50]}...' 的深度洞察分析...")
         insights_text = await _call_openrouter(prompt, model=model)
+        
+        # 构造结构化的返回结果
+        current_time = datetime.now().isoformat()
         
         result = {
             "question_id": question_data.get('question_id', ''),
-            "question_text": question_data.get('question_text', ''),
-            "total_responses": question_data.get('total_responses', 0),
+            "question_text": question_text,
+            "question_type": question_type,
+            "total_responses": total_responses,
             "insights": insights_text,
-            "response_distribution": question_data.get('response_distribution', {}),
-            "analysis_timestamp": "2025-08-19T10:00:00Z"
+            "response_distribution": response_distribution,
+            "analysis_timestamp": current_time,
+            "analysis_metadata": analysis_metadata,
+            "key_findings": {
+                "most_popular_answer": analysis_metadata.get('most_common'),
+                "least_popular_answer": analysis_metadata.get('least_common'),
+                "concentration_index": analysis_metadata.get('concentration'),
+                "outlier_patterns": analysis_metadata.get('outliers', []),
+                "score_metrics": score_analysis if score_analysis else None
+            },
+            "analysis_version": "2.0"  # 版本标识
         }
         
-        logger.info(f"为问题 '{question_data.get('question_text', '')[:30]}...' 生成了深度洞察。")
+        logger.info(f"成功生成问题 '{question_text[:30]}...' 的深度洞察，分析长度: {len(insights_text)} 字符")
         return result
         
     except Exception as e:
         logger.exception(f"生成问题洞察时失败: {e}")
-        raise RuntimeError(f"生成问题洞察失败: {e}") from e
+        error_details = f"错误类型: {type(e).__name__}, 错误信息: {str(e)}"
+        raise RuntimeError(f"生成问题洞察失败: {error_details}") from e
 
 async def generate_enterprise_comparison_analysis(comparison_data: Dict[str, Any], model: str = DEFAULT_MODEL) -> str:
     """
