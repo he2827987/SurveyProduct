@@ -7,7 +7,7 @@ services:
       npm install --prefix frontend &&
       npm run build --prefix frontend &&
       pip install -r requirements.txt
-    startCommand: cd survey_product_doc && python -m alembic upgrade head && python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: python -m alembic upgrade head && python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
         fromDatabase:
