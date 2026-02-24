@@ -7,18 +7,7 @@ services:
       npm install --prefix frontend &&
       cd frontend && npm run build && cd .. &&
       pip install -r requirements.txt
-    startCommand: |
-      python -c "
-      import os
-      import sys
-      print('Starting application...')
-      print('Python path:', sys.path)
-      print('Current directory:', os.getcwd())
-      print('Environment variables:')
-      for k, v in os.environ.items():
-          if 'DATABASE' in k or 'SECRET' in k or 'ENVIRONMENT' in k:
-              print(f'  {k}: {v[:20]}...' if len(str(v)) > 20 else f'  {k}: {v}')
-      " && python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT --log-level debug
+    startCommand: python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT --log-level info
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -30,7 +19,6 @@ services:
         sync: false
       - key: ENVIRONMENT
         value: "production"
-    healthCheckPath: /api/v1/health
   - type: pserv
     name: survey-product-db
     env: postgres
