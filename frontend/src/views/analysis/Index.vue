@@ -9,6 +9,9 @@
       </div>
     </div>
     
+    <!-- 标签分析组件 -->
+    <TagAnalyticsSimple />
+    
     <!-- 筛选条件 -->
     <div class="card filter-panel">
       <div class="filter-row">
@@ -89,6 +92,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import TagAnalyticsSimple from '@/components/TagAnalyticsSimple.vue'
 import * as analyticsApi from '@/api/analytics'
 import * as surveyApi from '@/api/survey'
 
