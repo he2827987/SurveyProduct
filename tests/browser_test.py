@@ -19,7 +19,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 class SurveyProductTester:
-    def __init__(self, base_url="https://survey-product.onrender.com"):
+    def __init__(self, base_url="http://localhost:8000"):
         self.base_url = base_url
         self.driver = None
         self.wait = None
@@ -73,12 +73,17 @@ class SurveyProductTester:
             self.driver.get(self.base_url)
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
             
+            # 等待页面完全加载
+            import time
+            time.sleep(2)
+            
             # 检查页面标题
             title = self.driver.title
-            if "Survey" in title or "调研" in title or title:
+            # 由于路由守卫，可能重定向到登录页面
+            if "Survey" in title or "调研" in title or "登录" in title:
                 self.log_test_result("首页访问", True, f"页面标题: {title}")
             else:
-                self.log_test_result("首页访问", False, "页面标题不包含预期内容")
+                self.log_test_result("首页访问", False, f"页面标题不包含预期内容: {title}")
                 
             self.take_screenshot("homepage")
             

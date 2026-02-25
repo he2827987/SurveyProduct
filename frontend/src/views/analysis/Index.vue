@@ -6,11 +6,19 @@
       <div class="actions">
         <el-button type="primary" @click="exportData">导出数据</el-button>
         <el-button type="success" @click="generateSummary">生成总结</el-button>
+        <el-button type="info" @click="showTagAnalytics = !showTagAnalytics">
+          {{ showTagAnalytics ? '数据分析' : '标签分析' }}
+        </el-button>
       </div>
     </div>
     
-    <!-- 筛选条件 -->
-    <div class="card filter-panel">
+    <!-- 标签分析组件 -->
+    <TagAnalytics v-if="showTagAnalytics" />
+    
+    <!-- 原有数据分析内容 -->
+    <div v-else>
+      <!-- 筛选条件 -->
+      <div class="card filter-panel">
       <div class="filter-row">
         <div class="filter-item">
           <span class="filter-label">选择调研：</span>
@@ -214,7 +222,6 @@
         </el-table>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup>
@@ -223,6 +230,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AnalysisChart from '@/components/AnalysisChart.vue'
 import BarChart from '@/components/charts/BarChart.vue'
+import TagAnalytics from '@/components/TagAnalytics.vue'
 import * as analyticsApi from '@/api/analytics'
 import * as surveyApi from '@/api/survey'
 import * as llmApi from '@/api/llm'
@@ -230,6 +238,7 @@ import axios from '@/api/request'
 
 const route = useRoute()
 const loading = ref(false)
+const showTagAnalytics = ref(false)
 
 // 从路由获取初始调研ID
 const initialSurveyId = computed(() => {

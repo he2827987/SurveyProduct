@@ -1,0 +1,57 @@
+{
+  "test_time": "2026-02-25 01:26:52",
+  "base_url": "https://survey-product.onrender.com",
+  "total_tests": 8,
+  "passed_tests": 2,
+  "failed_tests": 6,
+  "test_details": [
+    {
+      "test_name": "首页访问",
+      "passed": false,
+      "message": "页面标题不包含预期内容",
+      "timestamp": "2026-02-25 01:26:17"
+    },
+    {
+      "test_name": "登录功能",
+      "passed": false,
+      "message": "未找到登录按钮",
+      "timestamp": "2026-02-25 01:26:19"
+    },
+    {
+      "test_name": "调研管理页面",
+      "passed": false,
+      "message": "未找到导航元素",
+      "timestamp": "2026-02-25 01:26:33"
+    },
+    {
+      "test_name": "题库管理",
+      "passed": false,
+      "message": "未找到题库相关功能",
+      "timestamp": "2026-02-25 01:26:35"
+    },
+    {
+      "test_name": "数据分析功能",
+      "passed": false,
+      "message": "未找到分析相关功能",
+      "timestamp": "2026-02-25 01:26:37"
+    },
+    {
+      "test_name": "组织架构管理",
+      "passed": false,
+      "message": "未找到组织相关功能",
+      "timestamp": "2026-02-25 01:26:39"
+    },
+    {
+      "test_name": "响应式设计",
+      "passed": true,
+      "message": "测试了桌面、平板、手机三种分辨率",
+      "timestamp": "2026-02-25 01:26:48"
+    },
+    {
+      "test_name": "页面加载速度",
+      "passed": true,
+      "message": "加载时间: 0.43秒",
+      "timestamp": "2026-02-25 01:26:50"
+    }
+  ]
+}
