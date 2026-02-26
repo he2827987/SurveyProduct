@@ -11,6 +11,9 @@ import sys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
@@ -82,9 +85,9 @@ class SurveyProductTester:
             self.driver.get(self.base_url)
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
             
-            # 等待页面完全加载
+            # 等待页面完全加载和Vue.js渲染
             import time
-            time.sleep(2)
+            time.sleep(5)
             
             # 检查页面标题
             title = self.driver.title

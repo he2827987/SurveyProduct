@@ -78,7 +78,7 @@
               导出结果
             </el-button>
             <el-button size="small" @click="generateAIAnalysis" :loading="isGeneratingAI">
-              <el-icon><Magic /></el-icon>
+              <el-icon><Star /></el-icon>
               AI深度分析
             </el-button>
           </div>
@@ -159,8 +159,8 @@
 import { ref, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
-import { Plus, Refresh, Download, Magic } from '@element-plus/icons-vue'
-import analyticsAPI from '@/api/analytics'
+import { Plus, Refresh, Download, Star } from '@element-plus/icons-vue'
+import * as analyticsAPI from '@/api/analytics'
 
 // 响应式数据
 const showComparisonForm = ref(false)

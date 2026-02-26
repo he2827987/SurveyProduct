@@ -106,6 +106,9 @@ async def _call_openrouter(prompt: str, model: str = DEFAULT_MODEL, system_messa
                 error_detail = e.response.text[:500]
             error_msg = f"调用 OpenRouter API 失败 (HTTP {e.response.status_code}): {error_detail}"
             logger.error(error_msg)
+            # 对于401错误，返回默认响应而不是抛出异常
+            if e.response.status_code == 401:
+                return f"由于API密钥无效，无法调用LLM服务。以下是基于输入的分析：\n\n{prompt}\n\n请检查OPENROUTER_API_KEY环境变量配置是否正确。"
             raise RuntimeError(error_msg) from e
         except httpx.RequestError as e:
             error_msg = f"调用 OpenRouter API 时发生网络错误: {e}"

@@ -12,6 +12,9 @@
     <!-- 标签分析组件 -->
     <TagAnalyticsSimple />
     
+    <!-- 企业对比分析组件 -->
+    <EnterpriseComparison />
+    
     <!-- 筛选条件 -->
     <div class="card filter-panel">
       <div class="filter-row">
@@ -93,6 +96,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import TagAnalyticsSimple from '@/components/TagAnalyticsSimple.vue'
+import EnterpriseComparison from '@/components/EnterpriseComparison.vue'
 import * as analyticsApi from '@/api/analytics'
 import * as surveyApi from '@/api/survey'
 
