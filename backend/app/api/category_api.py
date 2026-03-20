@@ -3,20 +3,20 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from backend.app.database import get_db
-from backend.app.models.user import User
-from backend.app.models.category import Category
-from backend.app.schemas.category import (
+from app.database import get_db
+from app.models.user import User
+from app.models.category import Category
+from app.schemas.category import (
     CategoryCreate, CategoryUpdate, CategoryResponse, 
     CategoryTreeResponse, CategoryMoveRequest, CategoryBulkUpdateRequest
 )
-from backend.app.crud import (
+from app.crud import (
     get_category, get_categories, get_category_tree, create_category,
     update_category, delete_category, get_category_question_count,
     move_category, get_category_children
 )
-from backend.app.api.deps import get_current_active_user
-from backend.app.models.organization_member import OrganizationMember
+from app.api.deps import get_current_active_user
+from app.models.organization_member import OrganizationMember
 
 router = APIRouter()
 

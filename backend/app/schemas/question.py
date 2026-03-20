@@ -9,7 +9,7 @@
 from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Any, Union, Dict
 from datetime import datetime
-from backend.app.models.question import QuestionType
+from app.models.question import QuestionType
 import json
 
 

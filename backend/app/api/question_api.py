@@ -10,11 +10,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, cast
 
-from backend.app.database import get_db
-from backend.app.schemas.question import QuestionCreate, QuestionUpdate, QuestionResponse, QuestionListResponse
-from backend.app import crud
-from backend.app.security import get_current_user
-from backend.app import models, security
+from app.database import get_db
+from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionResponse, QuestionListResponse
+from app import crud
+from app.security import get_current_user
+from app import models, security
 
 # ===== API路由器配置 =====
 # 注意：这个路由器没有prefix，因为它的路径会由survey_api包含
@@ -314,8 +314,8 @@ def read_global_questions(
 
 def has_organization_access(db: Session, user: models.User, org_id: int) -> bool:
     """检查用户是否有权限访问组织"""
-    from backend.app.models.organization import Organization
-    from backend.app.models.organization_member import OrganizationMember
+    from app.models.organization import Organization
+    from app.models.organization_member import OrganizationMember
     
     # 组织所有者
     org = db.query(Organization).filter(Organization.id == org_id).first()
@@ -332,8 +332,8 @@ def has_organization_access(db: Session, user: models.User, org_id: int) -> bool
 
 def has_organization_manage_access(db: Session, user: models.User, org_id: int) -> bool:
     """检查用户是否有权限管理组织"""
-    from backend.app.models.organization import Organization
-    from backend.app.models.organization_member import OrganizationMember
+    from app.models.organization import Organization
+    from app.models.organization_member import OrganizationMember
     
     # 组织所有者
     org = db.query(Organization).filter(Organization.id == org_id).first()

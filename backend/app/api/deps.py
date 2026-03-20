@@ -2,16 +2,16 @@
 
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
-from backend.app.config import settings
+from app.config import settings
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from typing import Optional
-from backend.app import crud, models, schemas
-from backend.app.config import settings
-from backend.app.database import get_db
+from app import crud, models, schemas
+from app.config import settings
+from app.database import get_db
 from sqlalchemy.orm import Session
-from backend.app.security import get_current_user
+from app.security import get_current_user
 
 engine = create_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

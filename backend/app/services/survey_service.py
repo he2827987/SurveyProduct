@@ -4,11 +4,11 @@ from typing import Optional
 import json
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from backend.app.models.answer import SurveyAnswer
-from backend.app.models.question import Question as QuestionModel, QuestionType
-from backend.app.models.survey import Survey as SurveyModel
-from backend.app.models.survey_question import SurveyQuestion
-from backend.app.schemas.survey import SurveyCreate, SurveyUpdate
+from app.models.answer import SurveyAnswer
+from app.models.question import Question as QuestionModel, QuestionType
+from app.models.survey import Survey as SurveyModel
+from app.models.survey_question import SurveyQuestion
+from app.schemas.survey import SurveyCreate, SurveyUpdate
 import datetime
 
 def _attach_counts(db: Session, surveys: list[SurveyModel]):
@@ -231,7 +231,7 @@ def update_survey(db: Session, survey_id: int, survey_update: SurveyUpdate):
     更新问卷信息。
     如果提供了question_ids，则更新调研与题目的关联关系。
     """
-    from backend.app.models.survey_question import SurveyQuestion
+    from app.models.survey_question import SurveyQuestion
 
     db_survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()
     if db_survey:
@@ -286,7 +286,7 @@ def get_survey_questions(db: Session, survey_id: int):
     """
     获取调研的题目列表
     """
-    from backend.app.models.question import Question
+    from app.models.question import Question
     
     # 首先检查调研是否存在
     survey = db.query(SurveyModel).filter(SurveyModel.id == survey_id).first()

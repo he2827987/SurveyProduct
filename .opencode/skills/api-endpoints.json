@@ -1,0 +1,672 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "summary": "Read Users Me"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/users/me",
+    "summary": "Update Current User"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/users/register",
+    "summary": "Register User"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/users/login/access-token",
+    "summary": "Login For Access Token"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/",
+    "summary": "Read Users"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/users/me/password",
+    "summary": "Change Current User Password"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/me",
+    "summary": "Read Users Me"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/users/me",
+    "summary": "Update Current User"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/users/register",
+    "summary": "Register User"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/users/login/access-token",
+    "summary": "Login For Access Token"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/users/",
+    "summary": "Read Users"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/users/me/password",
+    "summary": "Change Current User Password"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/surveys/",
+    "summary": "Create Survey"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/",
+    "summary": "Get User Surveys"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}",
+    "summary": "Get Survey"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/surveys/{survey_id}",
+    "summary": "Update Survey"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/surveys/{survey_id}",
+    "summary": "Delete Survey"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/global/all",
+    "summary": "Get Global Surveys"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/surveys/{survey_id}/status",
+    "summary": "Update Survey Status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/fill",
+    "summary": "Get Survey For Filling"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/questions",
+    "summary": "Get Survey Questions"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/subjective-answers",
+    "summary": "Get Subjective Answers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/detail",
+    "summary": "Get Survey Detail"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/surveys/",
+    "summary": "Create Survey"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/",
+    "summary": "Get User Surveys"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}",
+    "summary": "Get Survey"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/surveys/{survey_id}",
+    "summary": "Update Survey"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/surveys/{survey_id}",
+    "summary": "Delete Survey"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/global/all",
+    "summary": "Get Global Surveys"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/surveys/{survey_id}/status",
+    "summary": "Update Survey Status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/fill",
+    "summary": "Get Survey For Filling"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/questions",
+    "summary": "Get Survey Questions"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/subjective-answers",
+    "summary": "Get Subjective Answers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/detail",
+    "summary": "Get Survey Detail"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/surveys/{survey_id}/questions/",
+    "summary": "Create Question For Survey"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/questions/",
+    "summary": "Read Questions For Survey"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/questions/{question_id}",
+    "summary": "Read Question"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/questions/{question_id}",
+    "summary": "Update Existing Question"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/questions/{question_id}",
+    "summary": "Delete Existing Question"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/questions/",
+    "summary": "Create Global Question"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/questions/",
+    "summary": "Read Global Questions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{org_id}/questions/",
+    "summary": "Create Organization Question"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{org_id}/questions/",
+    "summary": "Read Organization Questions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/surveys/{survey_id}/questions/",
+    "summary": "Create Question For Survey"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/questions/",
+    "summary": "Read Questions For Survey"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/questions/{question_id}",
+    "summary": "Read Question"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/questions/{question_id}",
+    "summary": "Update Existing Question"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/questions/{question_id}",
+    "summary": "Delete Existing Question"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/questions/",
+    "summary": "Create Global Question"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/questions/",
+    "summary": "Read Global Questions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{org_id}/questions/",
+    "summary": "Create Organization Question"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{org_id}/questions/",
+    "summary": "Read Organization Questions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/surveys/{survey_id}/answers/",
+    "summary": "Submit an answer to a survey (anonymous allowed)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/answers/",
+    "summary": "Get all answers for a specific survey (owner only)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/answers/{answer_id}",
+    "summary": "Get a single survey answer by ID (owner or submitter only)"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/llm/generate_questions",
+    "summary": "Generate Questions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/llm/summarize_answers",
+    "summary": "Summarize Answers"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/llm/generate_survey_summary",
+    "summary": "Generate Survey Summary"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/llm/generate_question_insights",
+    "summary": "Generate Question Insights"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/llm/generate_questions",
+    "summary": "Generate Questions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/llm/summarize_answers",
+    "summary": "Summarize Answers"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/llm/generate_survey_summary",
+    "summary": "Generate Survey Summary"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/llm/generate_question_insights",
+    "summary": "Generate Question Insights"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/",
+    "summary": "Create Organization"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/",
+    "summary": "Read Organizations"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/public/",
+    "summary": "Read Public Organizations"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/by-users",
+    "summary": "Read Organizations With Users"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{org_id}",
+    "summary": "Read Organization By Id"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/organizations/{org_id}",
+    "summary": "Update Organization"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/organizations/{org_id}",
+    "summary": "Delete Organization"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{org_id}/members/",
+    "summary": "Add Organization Member"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{org_id}/members/",
+    "summary": "Read Organization Members"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/organizations/{org_id}/members/{member_id}",
+    "summary": "Update Organization Member Role"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/organizations/{org_id}/members/{member_id}",
+    "summary": "Remove Organization Member"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{org_id}/departments",
+    "summary": "Get Departments"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{org_id}/departments",
+    "summary": "Create Department"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{org_id}/departments/public",
+    "summary": "Get Public Departments"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{org_id}/departments/tree",
+    "summary": "Get Department Tree"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/departments/{dept_id}",
+    "summary": "Update Department"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/departments/{dept_id}",
+    "summary": "Delete Department"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{org_id}/participants",
+    "summary": "Get Participants"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{org_id}/participants",
+    "summary": "Create Participant"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/participants/{participant_id}",
+    "summary": "Update Participant"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/participants/{participant_id}",
+    "summary": "Delete Participant"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analytics/",
+    "summary": "Analytics Root"
+  },
+  {
+    "method": "GET",
+    "path": "/{full_path}",
+    "summary": "Spa Fallback"
+  },
+  {
+    "method": "GET",
+    "path": "/test",
+    "summary": "Test Endpoint"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/health",
+    "summary": "Health Check"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/",
+    "summary": "Get Analytics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/surveys/{survey_id}/statistics",
+    "summary": "Get Survey Statistics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/overview",
+    "summary": "Get Survey Overview"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/surveys/{survey_id}/analytics",
+    "summary": "Get Survey Analytics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/surveys/{survey_id}/analytics/ai-summary",
+    "summary": "Get Survey Ai Summary"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/surveys/{survey_id}/questions/{question_id}/ai-insights",
+    "summary": "Get Question Ai Insights"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/participants",
+    "summary": "Get Participant Analytics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/trends",
+    "summary": "Get Trend Analytics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/cross-analysis",
+    "summary": "Get Cross Analysis"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/comparison",
+    "summary": "Get Comparison Analysis"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/export",
+    "summary": "Export Analytics Data"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/enterprise-comparison",
+    "summary": "Get Enterprise Comparison"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analytics/global-enterprise-comparison",
+    "summary": "Get Global Enterprise Comparison"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/surveys/{survey_id}/questions/{question_id}/analytics",
+    "summary": "Get Question Analytics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/surveys/{survey_id}/analytics/category/{category_id}",
+    "summary": "Get Category Analytics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/surveys/{survey_id}/analytics/tag/{tag_id}",
+    "summary": "Get Tag Analytics"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/organizations/{organization_id}/surveys/{survey_id}/analytics/enterprise-comparison-ai",
+    "summary": "Generate Enterprise Comparison Ai"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/tags",
+    "summary": "Get Organization Tag Analytics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/surveys/{survey_id}/analytics/tags",
+    "summary": "Get Survey Tag Analytics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/organizations/{organization_id}/analytics/tags/summary",
+    "summary": "Get Organization Tag Summary"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/categories",
+    "summary": "Get Categories List"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/categories",
+    "summary": "Create New Category"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/categories/tree",
+    "summary": "Get Categories Tree"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/categories/{category_id}",
+    "summary": "Get Category Detail"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/categories/{category_id}",
+    "summary": "Update Category Info"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/categories/{category_id}",
+    "summary": "Delete Category By Id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/categories/{category_id}/move",
+    "summary": "Move Category To Parent"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/categories/{category_id}/children",
+    "summary": "Get Category Children List"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/question-tags/",
+    "summary": "Get Tags"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/question-tags/",
+    "summary": "Create Tag"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/question-tags/{tag_id}",
+    "summary": "Update Tag"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/question-tags/{tag_id}",
+    "summary": "Delete Tag"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/question-tags/",
+    "summary": "Get Tags"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/question-tags/",
+    "summary": "Create Tag"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/question-tags/{tag_id}",
+    "summary": "Update Tag"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/question-tags/{tag_id}",
+    "summary": "Delete Tag"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/stats",
+    "summary": "Get Survey Analysis Stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/questions/scores",
+    "summary": "Get Question Scores"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/charts/options",
+    "summary": "Get Survey Option Charts"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/line",
+    "summary": "Get Line Scores"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/pie",
+    "summary": "Get Pie Distribution"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/stats",
+    "summary": "Get Survey Analysis Stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/questions/scores",
+    "summary": "Get Question Scores"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/charts/options",
+    "summary": "Get Survey Option Charts"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/line",
+    "summary": "Get Line Scores"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/analysis/survey/{survey_id}/pie",
+    "summary": "Get Pie Distribution"
+  }
+]

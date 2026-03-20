@@ -1,8 +1,8 @@
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from backend.app.models.answer import SurveyAnswer
-from backend.app.models.question import QuestionType
+from app.models.answer import SurveyAnswer
+from app.models.question import QuestionType
 from typing import List, Dict, Any, Optional
 import json
 
@@ -72,9 +72,9 @@ def get_per_question_scores(
       ...
     ]
     """
-    from backend.app.services.grading_service import calculate_answer_score
-    from backend.app.services.survey_service import get_survey_questions
-    from backend.app.models.question import Question as QuestionModel
+    from app.services.grading_service import calculate_answer_score
+    from app.services.survey_service import get_survey_questions
+    from app.models.question import Question as QuestionModel
 
     questions_in_survey = get_survey_questions(db, survey_id)
     question_map: Dict[str, Dict[str, Any]] = {}
@@ -155,10 +155,10 @@ def get_line_scores_by_dimension(
     if dimension not in ["department", "position", "organization"]:
         raise ValueError("dimension must be 'department', 'position', or 'organization'")
 
-    from backend.app.models.answer import SurveyAnswer as SurveyAnswerModel
-    from backend.app.models.question import Question as QuestionModel
-    from backend.app.services.grading_service import calculate_answer_score
-    from backend.app.services.survey_service import get_survey_questions
+    from app.models.answer import SurveyAnswer as SurveyAnswerModel
+    from app.models.question import Question as QuestionModel
+    from app.services.grading_service import calculate_answer_score
+    from app.services.survey_service import get_survey_questions
     import json
 
     # 拉取答卷
@@ -258,7 +258,7 @@ def get_line_scores_by_dimension(
 
 
 
-from backend.app.services.survey_service import get_survey_questions
+from app.services.survey_service import get_survey_questions
 
 def get_pie_option_distribution(
     db: Session,
@@ -278,8 +278,8 @@ def get_pie_option_distribution(
     if dimension not in ["department", "position", "organization"]:
         raise ValueError("dimension must be 'department', 'position', or 'organization'")
 
-    from backend.app.models.answer import SurveyAnswer as SurveyAnswerModel
-    from backend.app.models.question import Question as QuestionModel
+    from app.models.answer import SurveyAnswer as SurveyAnswerModel
+    from app.models.question import Question as QuestionModel
 
     question_obj = db.query(QuestionModel).filter(QuestionModel.id == question_id).first()
     if not question_obj:

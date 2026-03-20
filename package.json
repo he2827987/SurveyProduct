@@ -1,0 +1,28 @@
+{
+  "name": "surveyproduct",
+  "version": "1.0.0",
+  "description": "Survey Product Test Suite",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:desktop": "playwright test --project=desktop-chrome",
+    "test:mobile": "playwright test tests/e2e/mobile.spec.js",
+    "test:auth": "playwright test tests/e2e/auth.spec.js",
+    "test:survey": "playwright test tests/e2e/survey.spec.js",
+    "test:analysis": "playwright test tests/e2e/analysis.spec.js",
+    "test:all": "npm run test:desktop && npm run test:mobile",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "install-browsers": "playwright install chromium"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  },
+  "dependencies": {
+    "puppeteer": "^24.38.0"
+  }
+}

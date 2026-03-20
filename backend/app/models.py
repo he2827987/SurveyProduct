@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 import datetime
 
 # 从 database.py 导入 Base 对象
-from backend.app.database import Base
+from app.database import Base
 
 # 用户模型
 class User(Base):

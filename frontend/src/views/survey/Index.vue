@@ -424,23 +424,42 @@ const qrDialog = ref({
 /**
  * 页面加载时初始化数据
  */
+onMounted(() => {
+  console.log('调研页面已挂载，开始初始化数据...')
+  initPageData()
+})
+
 // 监听路由查询参数变化
 watch(() => route.query.edit, (newEditId) => {
   if (newEditId) {
+    console.log('检测到编辑模式，调研ID:', newEditId)
     openEditSurveyDialog(newEditId)
   }
 })
 
-onMounted(() => {
-  fetchSurveys() // 获取调研列表
-  fetchGlobalQuestions() // 获取题库题目
-
+// 初始化页面数据
+const initPageData = async () => {
+  // 检查是否已登录
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    console.log('未找到认证token，无法获取调研列表')
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  console.log('开始获取调研列表和题库数据...')
+  await fetchSurveys() // 获取调研列表
+  await fetchGlobalQuestions() // 获取题库题目
+  
   // 检查是否处于编辑模式
   const editId = route.query.edit
   if (editId) {
+    console.log('检测到编辑模式，调研ID:', editId)
     openEditSurveyDialog(editId)
   }
-})
+}
+
+
 
 /**
  * 获取调研列表
@@ -476,30 +495,40 @@ const fetchSurveys = async () => {
     let response
     if (viewMode.value === 'global') {
       response = await surveyApi.getGlobalSurveys(params)
+      console.log('全局调研API响应:', response)
     } else {
+      console.log('调用我的调研API，参数:', params)
       response = await surveyApi.getSurveys(params)
+      console.log('我的调研API响应:', response)
     }
     
     // 处理响应数据
     if (Array.isArray(response)) {
       // 获取当前用户ID（从localStorage或token中获取）
       const currentUserId = getCurrentUserId()
+      console.log('当前用户ID:', currentUserId)
       
-      surveyList.value = response.map(survey => ({
-        id: survey.id,
-        title: survey.title,
-        description: survey.description || '',
-        status: survey.status || 'pending',
-        question_count: survey.question_count ?? (survey.questions?.length || 0),
-        response_count: survey.response_count ?? (survey.answers?.length || 0),
-        createdAt: survey.created_at,
-        created_by_user_id: survey.created_by_user_id,
-        organization_id: survey.organization_id,
-        // 判断当前用户是否是创建者
-        isCreator: survey.created_by_user_id === currentUserId
-      }))
+      surveyList.value = response.map(survey => {
+        const mappedSurvey = {
+          id: survey.id,
+          title: survey.title,
+          description: survey.description || '',
+          status: survey.status || 'pending',
+          question_count: survey.question_count ?? (survey.questions?.length || 0),
+          response_count: survey.response_count ?? (survey.answers?.length || 0),
+          createdAt: survey.created_at,
+          created_by_user_id: survey.created_by_user_id,
+          organization_id: survey.organization_id,
+          // 判断当前用户是否是创建者
+          isCreator: currentUserId ? survey.created_by_user_id === currentUserId : true
+        }
+        console.log('映射的调研:', mappedSurvey)
+        return mappedSurvey
+      })
       totalSurveys.value = surveyList.value.length
+      console.log('最终调研列表:', surveyList.value)
     } else {
+      console.log('响应不是数组格式:', response)
       surveyList.value = []
       totalSurveys.value = 0
     }
@@ -526,10 +555,13 @@ const getCurrentUserId = () => {
   try {
     // 从localStorage获取用户信息
     const userInfo = localStorage.getItem('user_info')
+    console.log('从localStorage获取的user_info:', userInfo)
     if (userInfo) {
       const user = JSON.parse(userInfo)
+      console.log('解析后的用户信息:', user)
       return user.id
     }
+    console.log('没有找到用户信息')
     return null
   } catch (error) {
     console.error('获取用户ID失败:', error)
@@ -938,6 +970,32 @@ const getQuestionTypeTag = (type) => {
 
 <style scoped>
 /* ===== 页面布局样式 ===== */
+
+.page-container {
+  padding: 20px;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  color: #303133;
+}
+
+.card {
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
 
 /* 调研内容区域 */
 .survey-content {

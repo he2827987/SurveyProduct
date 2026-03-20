@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRouter } from 'vue-router';
 // 修复API导入，使用正确的函数名
@@ -68,6 +68,20 @@ const form = reactive({
 });
 const loading = ref(false);
 const formRef = ref(null);
+
+// 检查是否已登录（快速检查，避免重复验证）
+onMounted(() => {
+  const token = localStorage.getItem('access_token');
+  const tokenFromStorage = localStorage.getItem('user_info');
+  
+  if (token && tokenFromStorage) {
+    console.log('检测到已登录状态，显示提示信息');
+    ElMessage.info('您已登录，正在跳转到首页...');
+    setTimeout(() => {
+      router.push('/');
+    }, 1000);
+  }
+});
 
 // 表单验证规则
 const formRules = reactive({
@@ -132,6 +146,27 @@ const onLogin = async () => {
         const token = response.access_token || response.token;
         if (token) {
           localStorage.setItem('access_token', token);
+          
+          // 解码token获取用户信息
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const userInfo = {
+              id: payload.sub,
+              username: payload.sub,
+              // 可以添加其他需要的用户信息
+            };
+            localStorage.setItem('user_info', JSON.stringify(userInfo));
+            console.log('用户信息已保存:', userInfo);
+          } catch (error) {
+            console.error('解码token失败:', error);
+            // 如果解码失败，至少保存用户名
+            const userInfo = {
+              id: form.email, // 使用用户名作为临时ID
+              username: form.email
+            };
+            localStorage.setItem('user_info', JSON.stringify(userInfo));
+          }
+          
           ElMessage.success('登录成功');
           
           // 检查是否有重定向路径

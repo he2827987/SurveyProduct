@@ -2,15 +2,15 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, Form
 from sqlalchemy.orm import Session
-from backend.app.database import get_db
-from backend.app.schemas.user import UserCreate, UserLogin, UserResponse, UserUpdate
-from backend.app.schemas.token import Token # 导入 Token schema
-from backend.app.services import user_service
-from backend.app.security import create_access_token # <-- 注意这里的导入路径
+from app.database import get_db
+from app.schemas.user import UserCreate, UserLogin, UserResponse, UserUpdate
+from app.schemas.token import Token # 导入 Token schema
+from app.services import user_service
+from app.security import create_access_token # <-- 注意这里的导入路径
 from datetime import timedelta
-from backend.app.security import create_access_token, get_current_user
-from backend.app.config import settings # <-- 注意这里的导入路径
-from backend.app.models.user import User as UserModel
+from app.security import create_access_token, get_current_user
+from app.config import settings # <-- 注意这里的导入路径
+from app.models.user import User as UserModel
 
 router = APIRouter(
     prefix="/users",
@@ -26,7 +26,7 @@ async def read_users_me(current_user: UserModel = Depends(get_current_user), db:
     # 补充 organization_name 便于前端显示
     if current_user.organization_id:
         try:
-            from backend.app import crud
+            from app import crud
             org = crud.get_organization(db, org_id=current_user.organization_id)  # type: ignore
             if org:
                 setattr(current_user, "organization_name", org.name)

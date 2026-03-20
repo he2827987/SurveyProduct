@@ -9,7 +9,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, Enum, Boolean, Table, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from backend.app.database import Base
+from app.database import Base
 from typing import Optional, cast
 import enum
 import datetime

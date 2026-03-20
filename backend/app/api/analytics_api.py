@@ -10,21 +10,59 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-from backend.app.database import get_db
-from backend.app.models.survey import Survey
-from backend.app.models.survey_question import SurveyQuestion
-from backend.app.models.answer import SurveyAnswer
-from backend.app.models.question import Question, QuestionType
-from backend.app.models.participant import Participant
-from backend.app.models.department import Department
-from backend.app.models.organization import Organization
-from backend.app.models.organization_member import OrganizationMember
-from backend.app.models.tag import Tag
-from backend.app.models.category import Category
+from app.database import get_db
+from app.models.survey import Survey
+from app.models.survey_question import SurveyQuestion
+from app.models.answer import SurveyAnswer
+from app.models.question import Question, QuestionType
+from app.models.participant import Participant
+from app.models.department import Department
+from app.models.organization import Organization
+from app.models.organization_member import OrganizationMember
+from app.models.tag import Tag
+from app.models.category import Category
 
-from backend.app.services import llm_service
+from app.services import llm_service
 
 router = APIRouter()
+
+
+@router.get("/")
+async def get_analytics():
+    """获取分析页面基础数据"""
+    return {"message": "Analytics API is working"}
+
+
+@router.get("/surveys/{survey_id}/statistics")
+async def get_survey_statistics(
+    survey_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取单个调研的统计数据"""
+    
+    # 获取调研信息
+    survey = db.query(Survey).filter(Survey.id == survey_id).first()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+    
+    # 获取调研的问题数
+    question_count = db.query(SurveyQuestion).filter(SurveyQuestion.survey_id == survey_id).count()
+    
+    # 获取调研的答案数
+    answer_count = db.query(SurveyAnswer).filter(SurveyAnswer.survey_id == survey_id).count()
+    
+    # 获取参与者数（去重）
+    participants = db.query(SurveyAnswer.participant_id).filter(SurveyAnswer.survey_id == survey_id).distinct().count()
+    
+    # 返回统计数据
+    return {
+        "survey_id": survey_id,
+        "survey_title": survey.title,
+        "question_count": question_count,
+        "answer_count": answer_count,
+        "participant_count": participants,
+        "status": survey.status
+    }
 
 
 

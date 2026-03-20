@@ -69,6 +69,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as analyticsApi from '@/api/analytics'
+import * as echarts from 'echarts'
 
 const tagData = ref([])
 const overviewStats = ref([
@@ -122,7 +123,7 @@ const loadTagData = async () => {
     // 渲染图表
     renderCharts()
     
-    ElMessage.success('标签数据加载成功')
+    console.log('标签数据加载成功')
   } catch (error) {
     console.error('加载标签数据失败:', error)
     ElMessage.error('加载标签数据失败')
@@ -130,51 +131,97 @@ const loadTagData = async () => {
 }
 
 const renderCharts = () => {
-  // 渲染标签分布饼图
+  // 渲染标签分布饼图 - 使用ECharts
   if (tagDistributionChart.value && tagData.value.length > 0) {
     const chartData = tagData.value.map(tag => ({
       name: tag.tag_name,
       value: tag.question_count
     }))
     
-    // 使用简单的DOM操作创建图表（不依赖ECharts）
-    const chartHtml = `
-      <div style="width: 100%; height: 300px; text-align: center; line-height: 300px; background: #f5f5f5; border-radius: 4px;">
-        <div style="font-weight: bold; margin-bottom: 10px;">标签问题分布</div>
-        ${chartData.map(item => 
-          `<div style="display: inline-block; margin: 0 10px;">
-            <div style="font-size: 12px;">${item.name}</div>
-            <div style="font-weight: bold; color: #409EFF;">${item.value}</div>
-          </div>`
-        ).join('')}
-      </div>
-    `
-    
-    tagDistributionChart.value.innerHTML = chartHtml
+    // 使用ECharts创建饼图
+    import('echarts').then(echarts => {
+      const chart = echarts.init(tagDistributionChart.value)
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: '{a} <br/>{b}: {c} ({d}%)'
+        },
+        legend: {
+          orient: 'vertical',
+          left: 'left'
+        },
+        series: [
+          {
+            name: '问题分布',
+            type: 'pie',
+            radius: '50%',
+            data: chartData,
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowOffsetX: 0,
+                shadowColor: 'rgba(0, 0, 0, 0.5)'
+              }
+            }
+          }
+        ]
+      }
+      chart.setOption(option)
+      
+      // 窗口大小变化时重新渲染
+      window.addEventListener('resize', () => {
+        chart.resize()
+      })
+    })
   }
   
-  // 渲染标签分数柱状图
+  // 渲染标签分数柱状图 - 使用ECharts
   if (tagScoreChart.value && tagData.value.length > 0) {
     const chartData = tagData.value.map(tag => ({
       name: tag.tag_name,
       value: tag.avg_score
     }))
     
-    const maxScore = Math.max(...chartData.map(item => item.value))
-    
-    const chartHtml = `
-      <div style="width: 100%; height: 300px; text-align: center; background: #f5f5f5; border-radius: 4px;">
-        <div style="font-weight: bold; margin-bottom: 10px;">标签平均分数</div>
-        ${chartData.map(item => {
-          const widthPercent = (item.value / maxScore) * 80
-          return `<div style="display: inline-block; margin: 0 5px; width: ${widthPercent}px; height: 20px; background: #409EFF; color: white; line-height: 20px; font-size: 12px;">
-            ${item.name}: ${item.value.toFixed(1)}
-          </div>`
-        }).join('')}
-      </div>
-    `
-    
-    tagScoreChart.value.innerHTML = chartHtml
+    import('echarts').then(echarts => {
+      const chart = echarts.init(tagScoreChart.value)
+      const option = {
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
+          }
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'value'
+        },
+        yAxis: {
+          type: 'category',
+          data: chartData.map(item => item.name)
+        },
+        series: [
+          {
+            name: '平均分',
+            type: 'bar',
+            data: chartData.map(item => item.value),
+            itemStyle: {
+              color: '#409EFF'
+            }
+          }
+        ]
+      }
+      chart.setOption(option)
+      
+      // 窗口大小变化时重新渲染
+      window.addEventListener('resize', () => {
+        chart.resize()
+      })
+    })
   }
 }
 
@@ -239,7 +286,7 @@ onMounted(() => {
   height: 300px;
   border: 1px solid #ebeef5;
   border-radius: 6px;
-  padding: 20px;
+  padding: 10px;
 }
 
 .table-section {

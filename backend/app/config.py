@@ -25,26 +25,42 @@ class Settings(BaseSettings):
         extra="ignore"        # 忽略 .env 中未定义的变量
     )
 
-# 手动加载.env文件
+# 在创建Settings实例之前加载环境变量
+# 使用os.path.dirname获取当前文件的绝对路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+
+# 修改手动加载函数，使用绝对路径
 def load_env_manually():
     """手动加载.env文件"""
-    env_paths = [
-        "backend/.env",
-        ".env", 
-        "../backend/.env",
-        os.path.join(os.path.dirname(__file__), "..", ".env")
-    ]
+    # 优先加载项目根目录的.env文件
+    env_path = os.path.join(project_root, ".env")
+    if os.path.exists(env_path):
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value.strip('"')
     
-    for env_path in env_paths:
-        if os.path.exists(env_path):
-            with open(env_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        os.environ[key] = value.strip('"')
+    # 如果项目根目录没有.env文件，尝试其他路径
+    else:
+        env_paths = [
+            "backend/.env",
+            ".env", 
+            "../backend/.env",
+        ]
+        
+        for env_path in env_paths:
+            if os.path.exists(env_path):
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            key, value = line.split('=', 1)
+                            os.environ[key] = value.strip('"')
+                break
 
-# 在创建Settings实例之前加载环境变量
 load_env_manually()
 
 # 实例化配置对象

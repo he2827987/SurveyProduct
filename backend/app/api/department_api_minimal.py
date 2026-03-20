@@ -3,12 +3,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from backend.app.database import get_db
-from backend.app.models.department import Department
-from backend.app.models.organization import Organization
-from backend.app.models.user import User
-from backend.app.schemas.department import DepartmentCreate, DepartmentResponse
-from backend.app.api.deps import get_current_user
+from app.database import get_db
+from app.models.department import Department
+from app.models.organization import Organization
+from app.models.user import User
+from app.schemas.department import DepartmentCreate, DepartmentResponse
+from app.api.deps import get_current_user
 
 router = APIRouter()
 

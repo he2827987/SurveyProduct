@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from backend.app.models.answer import SurveyAnswer
-from backend.app.models.question import Question, QuestionType
+from app.models.answer import SurveyAnswer
+from app.models.question import Question, QuestionType
 import json
 from typing import List, Dict, Any, Optional
 
@@ -28,7 +28,7 @@ def get_question_option_stats(
     维度：department / position / organization
     包括“未作答”统计；填空题仅区分“有答案/未作答”
     """
-    from backend.app.services.survey_service import get_survey_questions
+    from app.services.survey_service import get_survey_questions
     
     if dimension not in ["department", "position", "organization"]:
         return []

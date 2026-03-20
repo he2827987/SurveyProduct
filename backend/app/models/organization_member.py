@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy import UniqueConstraint # 导入 UniqueConstraint
 
-from backend.app.database import Base
+from app.database import Base
 
 class OrganizationMember(Base):
     __tablename__ = "organization_members"

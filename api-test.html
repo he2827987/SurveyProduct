@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API测试页面</title>
+</head>
+<body>
+    <h1>前端API交互测试</h1>
+    
+    <div>
+        <h2>登录测试</h2>
+        <button onclick="testLogin()">测试登录</button>
+        <div id="loginResult"></div>
+    </div>
+    
+    <div>
+        <h2>获取调研列表测试</h2>
+        <button onclick="testSurveys()">测试获取调研</button>
+        <div id="surveysResult"></div>
+    </div>
+    
+    <div>
+        <h2>创建调研测试</h2>
+        <button onclick="testCreateSurvey()">测试创建调研</button>
+        <div id="createResult"></div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        let authToken = '';
+        
+        async function testLogin() {
+            const resultDiv = document.getElementById('loginResult');
+            resultDiv.innerHTML = '正在测试登录...';
+            
+            try {
+                const formData = new FormData();
+                formData.append('username', 'testuser123@test.com');
+                formData.append('password', 'test123');
+                
+                const response = await fetch(`${API_BASE}/users/login/access-token`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.access_token) {
+                    authToken = data.access_token;
+                    resultDiv.innerHTML = `<span style="color: green;">✅ 登录成功! Token: ${authToken.substring(0, 20)}...</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span style="color: red;">❌ 登录失败: ${JSON.stringify(data)}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: red;">❌ 登录错误: ${error.message}</span>`;
+            }
+        }
+        
+        async function testSurveys() {
+            const resultDiv = document.getElementById('surveysResult');
+            
+            if (!authToken) {
+                resultDiv.innerHTML = '<span style="color: red;">请先登录!</span>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '正在获取调研列表...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/surveys/`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span style="color: green;">✅ 获取成功! 调研数量: ${data.length}</span><br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<span style="color: red;">❌ 获取失败: ${JSON.stringify(data)}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: red;">❌ 获取错误: ${error.message}</span>`;
+            }
+        }
+        
+        async function testCreateSurvey() {
+            const resultDiv = document.getElementById('createResult');
+            
+            if (!authToken) {
+                resultDiv.innerHTML = '<span style="color: red;">请先登录!</span>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '正在创建调研...';
+            
+            try {
+                const surveyData = {
+                    title: 'API测试调研-' + new Date().getTime(),
+                    description: '通过测试页面创建的调研',
+                    created_by: 10
+                };
+                
+                const response = await fetch(`${API_BASE}/surveys/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(surveyData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span style="color: green;">✅ 创建成功!</span><br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<span style="color: red;">❌ 创建失败: ${JSON.stringify(data)}</span>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: red;">❌ 创建错误: ${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

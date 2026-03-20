@@ -10,9 +10,9 @@ from sqlalchemy import func
 from typing import List, Optional
 import json
 
-from backend.app.database import get_db
-from backend.app.models.tag import Tag, question_tags
-from backend.app.schemas.tag import TagCreate, TagUpdate, TagResponse
+from app.database import get_db
+from app.models.tag import Tag, question_tags
+from app.schemas.tag import TagCreate, TagUpdate, TagResponse
 
 router = APIRouter(prefix="/question-tags", tags=["Question Tags"])
 

@@ -165,6 +165,26 @@ router.beforeEach((to, from, next) => {
     return
   }
 
+  // 如果访问登录页面但已有有效token，重定向到dashboard
+  if (to.path === '/login' && localStorage.getItem('access_token')) {
+    validateAuthToken().then(isValid => {
+      if (isValid) {
+        next('/')
+      } else {
+        // token无效，清除并继续显示登录页面
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('user_info')
+        next()
+      }
+    }).catch(() => {
+      // 验证失败，清除token并继续显示登录页面
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('user_info')
+      next()
+    })
+    return
+  }
+
   next()
 })
 

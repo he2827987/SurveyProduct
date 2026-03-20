@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手动功能测试 - SurveyProduct</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        .test-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid #e0e0e0;
+        }
+        .test-item label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            flex: 1;
+        }
+        .test-item input[type="checkbox"] {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .test-item.completed {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status.pending { background: #fff3cd; color: #856404; }
+        .status.passed { background: #d4edda; color: #155724; }
+        .status.failed { background: #f8d7da; color: #721c24; }
+        .progress-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.5s;
+            border-radius: 4px;
+        }
+        .api-test {
+            background: #2d2d2d;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .note strong { color: #856404; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+        }
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 手动功能测试</h1>
+        <p class="subtitle">SurveyProduct - 调研管理与数据分析测试</p>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalTests">0</div>
+                <div class="stat-label">总测试数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="passedTests">0</div>
+                <div class="stat-label">通过</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="failedTests">0</div>
+                <div class="stat-label">失败</div>
+            </div>
+        </div>
+        
+        <!-- 登录测试 -->
+        <div class="test-section">
+            <h2>🔐 第一步：登录测试</h2>
+            <div class="note">
+                <strong>测试账号：</strong>he2827987@gmail.com / 13245678
+            </div>
+            <div class="button-group">
+                <button class="btn-primary" onclick="window.open('http://localhost:3000/login', '_blank')">
+                    打开登录页面
+                </button>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    登录页面正常显示
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    输入邮箱和密码
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    点击登录按钮成功
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    跳转到首页
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+        </div>
+        
+        <!-- 调研管理测试 -->
+        <div class="test-section">
+            <h2>📝 第二步：调研管理页面测试</h2>
+            <div class="button-group">
+                <button class="btn-primary" onclick="window.open('http://localhost:3000/survey', '_blank')">
+                    打开调研管理页面
+                </button>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    页面正常加载，显示调研列表
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    "我的调研"和"全局调研库"切换正常
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    点击"创建调研"按钮打开表单
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    填写调研标题和描述
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    保存调研成功
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    搜索功能正常
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    状态筛选功能正常
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    "查看"按钮打开详情页
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    "生成二维码"功能正常
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    "数据分析"按钮跳转正常
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+        </div>
+        
+        <!-- 数据分析测试 -->
+        <div class="test-section">
+            <h2>📊 第三步：数据分析页面测试</h2>
+            <div class="button-group">
+                <button class="btn-primary" onclick="window.open('http://localhost:3000/analysis', '_blank')">
+                    打开数据分析页面
+                </button>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    页面正常加载
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    显示分析图表
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    标签页切换正常
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    图表数据准确
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    筛选条件正常工作
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    导出功能按钮可用
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+            <div class="test-item">
+                <label>
+                    <input type="checkbox" onchange="updateProgress(this)">
+                    AI总结按钮可用（如有）
+                </label>
+                <span class="status pending">待测试</span>
+            </div>
+        </div>
+        
+        <!-- 测试完成 -->
+        <div class="test-section">
+            <h2>✅ 测试完成</h2>
+            <div class="button-group">
+                <button class="btn-success" onclick="generateReport()">
+                    生成测试报告
+                </button>
+                <button class="btn-secondary" onclick="resetTests()">
+                    重置测试
+                </button>
+            </div>
+            <div id="reportOutput"></div>
+        </div>
+    </div>
+    
+    <script>
+        let testResults = {
+            total: 0,
+            passed: 0,
+            failed: 0
+        };
+        
+        function updateProgress(checkbox) {
+            const testItem = checkbox.closest('.test-item');
+            const statusSpan = testItem.querySelector('.status');
+            
+            if (checkbox.checked) {
+                testItem.classList.add('completed');
+                statusSpan.className = 'status passed';
+                statusSpan.textContent = '通过';
+                testResults.passed++;
+            } else {
+                testItem.classList.remove('completed');
+                statusSpan.className = 'status pending';
+                statusSpan.textContent = '待测试';
+                testResults.passed--;
+            }
+            
+            updateStats();
+        }
+        
+        function updateStats() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            testResults.total = checkboxes.length;
+            testResults.failed = testResults.total - testResults.passed;
+            
+            document.getElementById('totalTests').textContent = testResults.total;
+            document.getElementById('passedTests').textContent = testResults.passed;
+            document.getElementById('failedTests').textContent = testResults.failed;
+            
+            const percentage = (testResults.passed / testResults.total * 100).toFixed(1);
+            document.getElementById('progressFill').style.width = percentage + '%';
+        }
+        
+        function generateReport() {
+            const report = {
+                timestamp: new Date().toISOString(),
+                summary: testResults,
+                percentage: (testResults.passed / testResults.total * 100).toFixed(1)
+            };
+            
+            const reportOutput = document.getElementById('reportOutput');
+            reportOutput.innerHTML = `
+                <div class="api-test">
+测试报告生成时间: ${new Date().toLocaleString('zh-CN')}
+<br><br>
+总测试数: ${testResults.total}
+<br>
+通过: ${testResults.passed} ✅
+<br>
+失败: ${testResults.failed} ❌
+<br><br>
+测试覆盖率: ${report.percentage}%
+<br><br>
+状态: ${report.percentage >= 80 ? '✅ 测试通过' : '⚠️ 需要修复'}
+                </div>
+            `;
+        }
+        
+        function resetTests() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                updateProgress(checkbox);
+            });
+            testResults = { total: 0, passed: 0, failed: 0 };
+            updateStats();
+            document.getElementById('reportOutput').innerHTML = '';
+        }
+        
+        // 初始化统计
+        updateStats();
+    </script>
+</body>
+</html>

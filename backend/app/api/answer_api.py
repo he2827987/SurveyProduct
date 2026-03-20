@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, cast
 import json
 
-from backend.app import crud, schemas, models
-from backend.app.api.deps import get_db, get_survey_by_id_and_owner
-from backend.app.security import get_current_user, get_current_user_optional
+from app import crud, schemas, models
+from app.api.deps import get_db, get_survey_by_id_and_owner
+from app.security import get_current_user, get_current_user_optional
 from fastapi.security import HTTPBearer
 from fastapi import Header
 
@@ -31,8 +31,8 @@ async def submit_survey_answer(
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
         try:
-            from backend.app.security import verify_token
-            from backend.app.services import user_service
+            from app.security import verify_token
+            from app.services import user_service
             payload = verify_token(token)
             if payload:
                 username = payload.get("sub")
@@ -59,7 +59,7 @@ async def submit_survey_answer(
             answer_in.organization_id = current_user.organization_id
 
     if not current_user and hasattr(answer_in, 'respondent_name') and answer_in.respondent_name:
-        from backend.app.models.participant import Participant
+        from app.models.participant import Participant
         
         # 获取组织ID（从调研或提交数据中）
         organization_id = getattr(answer_in, 'organization_id', None)

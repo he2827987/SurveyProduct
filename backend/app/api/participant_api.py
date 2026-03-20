@@ -3,13 +3,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from backend.app.database import get_db
-from backend.app.models.participant import Participant
-from backend.app.models.organization import Organization
-from backend.app.models.user import User
-from backend.app.models.organization_member import OrganizationMember
-from backend.app.schemas.participant import ParticipantCreate, ParticipantUpdate, ParticipantResponse
-from backend.app.api.deps import get_current_user
+from app.database import get_db
+from app.models.participant import Participant
+from app.models.organization import Organization
+from app.models.user import User
+from app.models.organization_member import OrganizationMember
+from app.schemas.participant import ParticipantCreate, ParticipantUpdate, ParticipantResponse
+from app.api.deps import get_current_user
 
 router = APIRouter()
 
@@ -50,7 +50,7 @@ def create_participant(
     
     # 检查部门是否存在且属于该组织
     if participant.department_id:
-        from backend.app.models.department import Department
+        from app.models.department import Department
         dept = db.query(Department).filter(
             Department.id == participant.department_id,
             Department.organization_id == org_id,
@@ -101,7 +101,7 @@ def update_participant(
     
     # 检查部门是否存在且属于该组织
     if participant.department_id:
-        from backend.app.models.department import Department
+        from app.models.department import Department
         dept = db.query(Department).filter(
             Department.id == participant.department_id,
             Department.organization_id == participant_obj.organization_id,

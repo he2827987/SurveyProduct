@@ -2,7 +2,7 @@
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship, backref
-from backend.app.database import Base
+from app.database import Base
 import datetime
 
 class Organization(Base):

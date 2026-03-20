@@ -7,7 +7,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Table, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from backend.app.database import Base
+from app.database import Base
 
 # 题目标签关联表（多对多关系）
 question_tags = Table(

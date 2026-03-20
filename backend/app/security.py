@@ -3,13 +3,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import Union, Any
 from jose import jwt, JWTError
-from backend.app.config import settings
+from app.config import settings
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer # 导入 OAuth2PasswordBearer
-from backend.app.schemas.token import TokenData # 导入 TokenData
+from app.schemas.token import TokenData # 导入 TokenData
 from sqlalchemy.orm import Session
-from backend.app.database import get_db
-from backend.app.services import user_service # 导入 user_service
+from app.database import get_db
+from app.services import user_service # 导入 user_service
 
 # 定义 OAuth2PasswordBearer 实例，用于从请求中提取令牌
 # tokenUrl 指向你的登录接口，FastAPI 会自动在 Swagger UI 中生成认证输入框

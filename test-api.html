@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>测试API</h1>
+    <button onclick="testLogin()">测试登录</button>
+    <button onclick="testSurvey()">测试调研API</button>
+    <pre id="result"></pre>
+    
+    <script>
+    let token = '';
+    
+    async function testLogin() {
+        const result = document.getElementById('result');
+        try {
+            const formData = new FormData();
+            formData.append('username', 'he2827987@gmail.com');
+            formData.append('password', '13245678');
+            
+            const response = await fetch('http://localhost:8000/api/v1/users/login/access-token', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            result.textContent = JSON.stringify(data, null, 2);
+            
+            if (data.access_token) {
+                token = data.access_token;
+                localStorage.setItem('access_token', token);
+                alert('登录成功！');
+            }
+        } catch (error) {
+            result.textContent = 'Error: ' + error.message;
+        }
+    }
+    
+    async function testSurvey() {
+        const result = document.getElementById('result');
+        token = token || localStorage.getItem('access_token');
+        
+        if (!token) {
+            alert('请先登录');
+            return;
+        }
+        
+        try {
+            const response = await fetch('http://localhost:8000/api/v1/surveys/', {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+            
+            const data = await response.json();
+            result.textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+            result.textContent = 'Error: ' + error.message;
+        }
+    }
+    </script>
+</body>
+</html>

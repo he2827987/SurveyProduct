@@ -2,8 +2,8 @@
 
 from .user import UserCreate, UserLogin, UserResponse, UserUpdate, OrganizationResponse
 from .token import Token
-from backend.app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse
-from backend.app.schemas.user import UserCreate, UserUpdate
+from app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse
+from app.schemas.user import UserCreate, UserUpdate
 from .question import QuestionCreate, QuestionBase
 from .answer import SurveyAnswer, SurveyAnswerCreate, SurveyAnswerResponse, SurveyAnswerInDBBase
 from .organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse

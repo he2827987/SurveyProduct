@@ -1,7 +1,7 @@
 
 from sqlalchemy.orm import Session
-from backend.app.models.question import Question, QuestionType
-from backend.app.models.answer import SurveyAnswer
+from app.models.question import Question, QuestionType
+from app.models.answer import SurveyAnswer
 import json
 from typing import List, Dict, Any
 
@@ -61,12 +61,12 @@ def calculate_survey_total_score(db: Session, survey_id: int, answers_data: Dict
     """
     计算整份问卷的总分
     """
-    from backend.app.services.survey_service import get_survey_questions
+    from app.services.survey_service import get_survey_questions
     
     # 获取问卷题目
     # 注意：这里直接复用 get_survey_questions 可能会返回 dict 列表而不是 ORM 对象
     # 我们直接查询 ORM 对象以便使用
-    from backend.app.models.survey_question import SurveyQuestion
+    from app.models.survey_question import SurveyQuestion
     
     survey_questions_relations = db.query(SurveyQuestion).filter(
         SurveyQuestion.survey_id == survey_id

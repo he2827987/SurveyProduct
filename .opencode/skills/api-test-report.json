@@ -1,0 +1,232 @@
+{
+  "summary": {
+    "total": 17,
+    "passed": 12,
+    "failed": 5,
+    "skipped": 0
+  },
+  "tests": [
+    {
+      "endpoint": "/test",
+      "method": "GET",
+      "status": "FAIL",
+      "message": "服务器健康检查失败: 未知错误",
+      "timestamp": "2026-03-20T08:48:21.701Z",
+      "details": {
+        "status": 200,
+        "ok": true,
+        "data": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/vite.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>Survey Product - 调研管理系统</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-Bnm8pNvu.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-w7YXX6Kt.css\">\n  </head>\n  <body>\n    <div id=\"app\"></div>\n  </body>\n</html>\n"
+      }
+    },
+    {
+      "endpoint": "/api/v1/users/register",
+      "method": "POST",
+      "status": "PASS",
+      "message": "用户注册成功: testuser_1773996501679",
+      "timestamp": "2026-03-20T08:48:22.083Z",
+      "details": {
+        "id": 12,
+        "username": "testuser_1773996501679",
+        "email": "test_1773996501679@example.com",
+        "role": "employee",
+        "created_at": "2026-03-20T08:48:22",
+        "updated_at": "2026-03-20T08:48:22",
+        "organization_id": 21,
+        "organization_name": null
+      }
+    },
+    {
+      "endpoint": "/api/v1/users/login/access-token",
+      "method": "POST",
+      "status": "PASS",
+      "message": "用户登录成功，已获取认证 token",
+      "timestamp": "2026-03-20T08:48:22.321Z",
+      "details": {
+        "token_type": "bearer"
+      }
+    },
+    {
+      "endpoint": "/api/v1/users/me",
+      "method": "GET",
+      "status": "PASS",
+      "message": "获取用户信息成功: testuser_1773996501679",
+      "timestamp": "2026-03-20T08:48:22.325Z",
+      "details": {
+        "id": 12,
+        "username": "testuser_1773996501679",
+        "email": "test_1773996501679@example.com",
+        "role": "employee",
+        "created_at": "2026-03-20T08:48:22",
+        "updated_at": "2026-03-20T08:48:22",
+        "organization_id": 21,
+        "organization_name": "testuser_1773996501679的组织"
+      }
+    },
+    {
+      "endpoint": "/api/v1/organizations/",
+      "method": "GET",
+      "status": "PASS",
+      "message": "获取组织列表成功，共 1 个组织",
+      "timestamp": "2026-03-20T08:48:22.335Z",
+      "details": {
+        "count": 1
+      }
+    },
+    {
+      "endpoint": "/api/v1/organizations/21",
+      "method": "GET",
+      "status": "PASS",
+      "message": "获取组织详情成功: testuser_1773996501679的组织",
+      "timestamp": "2026-03-20T08:48:22.338Z",
+      "details": {
+        "name": "testuser_1773996501679的组织",
+        "description": "由 testuser_1773996501679 创建的默认组织",
+        "id": 21,
+        "owner_id": 12,
+        "created_at": "2026-03-20T08:44:29",
+        "updated_at": "2026-03-20T08:44:29"
+      }
+    },
+    {
+      "endpoint": "/api/v1/surveys/",
+      "method": "GET",
+      "status": "PASS",
+      "message": "获取问卷列表成功，共 0 个问卷",
+      "timestamp": "2026-03-20T08:48:22.345Z",
+      "details": {
+        "count": 0
+      }
+    },
+    {
+      "endpoint": "/api/v1/surveys/",
+      "method": "POST",
+      "status": "PASS",
+      "message": "创建问卷成功",
+      "timestamp": "2026-03-20T08:48:22.352Z",
+      "details": {
+        "id": 38,
+        "title": "测试问卷 1773996502345",
+        "description": "这是一个测试问卷",
+        "status": "pending",
+        "organization_id": null,
+        "created_by_user_id": 12,
+        "created_at": "2026-03-20T08:48:22",
+        "updated_at": "2026-03-20T08:48:22",
+        "questions": null,
+        "question_count": 0,
+        "response_count": 0,
+        "start_time": null,
+        "end_time": null
+      }
+    },
+    {
+      "endpoint": "/api/v1/questions/",
+      "method": "GET",
+      "status": "PASS",
+      "message": "获取问题列表成功，共 0 个问题",
+      "timestamp": "2026-03-20T08:48:22.366Z",
+      "details": {}
+    },
+    {
+      "endpoint": "/api/v1/answers/",
+      "method": "GET",
+      "status": "FAIL",
+      "message": "获取答案列表失败",
+      "timestamp": "2026-03-20T08:48:22.367Z",
+      "details": {
+        "status": 404,
+        "ok": false,
+        "data": {
+          "detail": "Not Found"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/organizations/21/departments",
+      "method": "GET",
+      "status": "PASS",
+      "message": "获取部门列表成功，共 1 个部门",
+      "timestamp": "2026-03-20T08:48:22.375Z",
+      "details": {
+        "count": 1
+      }
+    },
+    {
+      "endpoint": "/api/v1/organizations/21/participants",
+      "method": "GET",
+      "status": "PASS",
+      "message": "获取参与者列表成功，共 0 个参与者",
+      "timestamp": "2026-03-20T08:48:22.384Z",
+      "details": {
+        "count": 0
+      }
+    },
+    {
+      "endpoint": "/api/v1/analytics/",
+      "method": "GET",
+      "status": "PASS",
+      "message": "分析 API 可用",
+      "timestamp": "2026-03-20T08:48:22.385Z",
+      "details": {
+        "message": "Analytics API is working"
+      }
+    },
+    {
+      "endpoint": "/api/v1/tags/",
+      "method": "GET",
+      "status": "FAIL",
+      "message": "获取标签列表失败",
+      "timestamp": "2026-03-20T08:48:22.386Z",
+      "details": {
+        "status": 404,
+        "ok": false,
+        "data": {
+          "detail": "Not Found"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/categories/",
+      "method": "GET",
+      "status": "FAIL",
+      "message": "获取分类列表失败",
+      "timestamp": "2026-03-20T08:48:22.386Z",
+      "details": {
+        "status": 404,
+        "ok": false,
+        "data": {
+          "detail": "Not Found"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/llm/status",
+      "method": "GET",
+      "status": "FAIL",
+      "message": "LLM API 状态检查失败",
+      "timestamp": "2026-03-20T08:48:22.387Z",
+      "details": {
+        "status": 404,
+        "ok": false,
+        "data": {
+          "detail": "Not Found"
+        }
+      }
+    },
+    {
+      "endpoint": "/docs",
+      "method": "GET",
+      "status": "PASS",
+      "message": "API 文档页面加载成功，共发现 134 个 API 端点",
+      "timestamp": "2026-03-20T08:48:30.274Z",
+      "details": {
+        "title": "Survey Product Document API - Swagger UI",
+        "apiCount": 134,
+        "screenshot": "api-docs-page.png"
+      }
+    }
+  ],
+  "startTime": "2026-03-20T08:48:21.676Z",
+  "endTime": "2026-03-20T08:48:30.293Z",
+  "duration": 8.616
+}

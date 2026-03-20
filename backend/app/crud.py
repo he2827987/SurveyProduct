@@ -7,15 +7,15 @@
 # ===== 导入依赖 =====
 from sqlalchemy.orm import Session
 from typing import List, Optional, cast, Union
-from backend.app import models
-from backend.app import schemas
-from backend.app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse
-from backend.app.schemas.user import UserCreate, UserUpdate
-from backend.app.schemas.question import QuestionCreate, QuestionUpdate
-from backend.app.schemas.answer import SurveyAnswerCreate, SurveyAnswer
-from backend.app.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse
-from backend.app.schemas.organization_member import OrganizationMemberCreate, OrganizationMemberUpdate, OrganizationMemberResponse
-from backend.app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
+from app import models
+from app import schemas
+from app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse
+from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.question import QuestionCreate, QuestionUpdate
+from app.schemas.answer import SurveyAnswerCreate, SurveyAnswer
+from app.schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse
+from app.schemas.organization_member import OrganizationMemberCreate, OrganizationMemberUpdate, OrganizationMemberResponse
+from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 from passlib.context import CryptContext # type: ignore
 import json
 
@@ -284,7 +284,7 @@ def get_questions_by_survey(db: Session, survey_id: int, skip: int = 0, limit: i
     Returns:
         List[models.Question]: 问题列表
     """
-    from backend.app.models.survey_question import SurveyQuestion
+    from app.models.survey_question import SurveyQuestion
     
     # 通过中间表获取题目
     survey_questions = db.query(SurveyQuestion).filter(
@@ -311,7 +311,7 @@ def create_survey_question(db: Session, question: QuestionCreate, survey_id: int
     Returns:
         models.Question: 创建的问题对象
     """
-    from backend.app.models.survey_question import SurveyQuestion
+    from app.models.survey_question import SurveyQuestion
     
     # 创建全局题目
     question_data = question.dict(exclude_unset=True, exclude={"options", "tags"})
@@ -354,7 +354,7 @@ def create_survey_question(db: Session, question: QuestionCreate, survey_id: int
     
     # 处理标签
     if tags_data:
-        from backend.app.models.tag import Tag
+        from app.models.tag import Tag
         for tag_name in tags_data:
             # 查找或创建标签
             tag = db.query(Tag).filter(Tag.name == tag_name).first()
@@ -402,7 +402,7 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
                 # 清除旧标签关联
                 db_question.tags = []
                 
-                from backend.app.models.tag import Tag
+                from app.models.tag import Tag
                 for tag_name in tags_data:
                     # 查找或创建标签
                     tag = db.query(Tag).filter(Tag.name == tag_name).first()
@@ -518,7 +518,7 @@ def create_global_question(db: Session, question: schemas.QuestionCreate, owner_
     
     # 处理标签
     if tags_data:
-        from backend.app.models.tag import Tag
+        from app.models.tag import Tag
         for tag_name in tags_data:
             # 查找或创建标签
             tag = db.query(Tag).filter(Tag.name == tag_name).first()
@@ -569,7 +569,7 @@ def get_global_questions(db: Session, skip: int = 0, limit: int = 100, type_filt
     
     # 添加标签过滤
     if tag_filter:
-        from backend.app.models.tag import Tag
+        from app.models.tag import Tag
         base_query = base_query.join(models.Question.tags).filter(Tag.name.in_(tag_filter))
     
     # 添加排序
@@ -604,7 +604,7 @@ def get_global_questions(db: Session, skip: int = 0, limit: int = 100, type_filt
     
     # 添加标签过滤
     if tag_filter:
-        from backend.app.models.tag import Tag
+        from app.models.tag import Tag
         query = query.join(models.Question.tags).filter(Tag.name.in_(tag_filter))
     
     # 添加排序
@@ -818,7 +818,7 @@ def get_organization_questions(db: Session, org_id: int, skip: int = 0, limit: i
 
 # ===== Survey Answer CRUD 操作 =====
 
-from backend.app.services.grading_service import calculate_survey_total_score
+from app.services.grading_service import calculate_survey_total_score
 
 def create_survey_answer(
     db: Session,

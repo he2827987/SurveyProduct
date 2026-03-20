@@ -3,11 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 
-from backend.app.api.deps import get_db
-from backend.app.security import get_current_user
-from backend.app.models.user import User as UserModel
-from backend.app.services.statistics_service import get_survey_stats_by_dimension, get_per_question_scores, get_line_scores_by_dimension, get_pie_option_distribution
-from backend.app.services.chart_service import get_question_option_stats
+from app.api.deps import get_db
+from app.security import get_current_user
+from app.models.user import User as UserModel
+from app.services.statistics_service import get_survey_stats_by_dimension, get_per_question_scores, get_line_scores_by_dimension, get_pie_option_distribution
+from app.services.chart_service import get_question_option_stats
 
 router = APIRouter(
     prefix="/analysis",

@@ -41,7 +41,7 @@ export default defineConfig({
   // 定义环境变量，供前端代码使用
   // 这将确保 request.js 中的 baseURL 能够正确获取到
   define: {
-    'import.meta.env.VITE_APP_BASE_API': JSON.stringify('/api/v1'), // 你的后端 API 基础路径
-    'import.meta.env.VITE_LOCAL_NETWORK_IP': JSON.stringify('192.168.0.17'), // 默认局域网IP
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify('/api/v1'), // 使用代理路径
+    'import.meta.env.VITE_LOCAL_NETWORK_IP': JSON.stringify('127.0.0.1'), // 默认局域网IP
   },
 })

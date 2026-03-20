@@ -5,8 +5,8 @@ from typing import Any, List, Optional, cast
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from backend.app import crud, schemas, models
-from backend.app.api import deps # 确保 deps.py 在同一个 api 目录下
+from app import crud, schemas, models
+from app.api import deps # 确保 deps.py 在同一个 api 目录下
 
 router = APIRouter()
 

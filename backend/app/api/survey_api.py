@@ -4,13 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional, cast
 
-from backend.app.api.deps import get_db
-from backend.app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse, SurveyStatusUpdate, SubjectiveAnswerDetail
-from backend.app import crud
-from backend.app.security import get_current_user
-from backend.app.services import survey_service
-from backend.app.models.user import User as UserModel
-from backend.app.models.survey import Survey as SurveyModel
+from app.api.deps import get_db
+from app.schemas.survey import SurveyCreate, SurveyUpdate, SurveyResponse, SurveyStatusUpdate, SubjectiveAnswerDetail
+from app import crud
+from app.security import get_current_user
+from app.services import survey_service
+from app.models.user import User as UserModel
+from app.models.survey import Survey as SurveyModel
 
 router = APIRouter(
     prefix="/surveys",
@@ -60,7 +60,9 @@ def get_user_surveys(
     获取当前用户创建的所有问卷。
     需要用户认证。
     """
+    print(f"获取用户 {current_user.id} ({current_user.username}) 的调研列表")
     surveys = survey_service.get_surveys_by_user(db=db, user_id=cast(int, current_user.id), skip=skip, limit=limit)
+    print(f"找到 {len(surveys)} 个调研")
     return surveys
 
 @router.get("/global/all", response_model=List[SurveyResponse])

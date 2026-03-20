@@ -1,11 +1,11 @@
 # backend/app/services/user_service.py
 
 from sqlalchemy.orm import Session
-from backend.app.models.user import User
-from backend.app.models.organization import Organization
-from backend.app.models.organization_member import OrganizationMember
-from backend.app.models.department import Department
-from backend.app.schemas.user import UserCreate
+from app.models.user import User
+from app.models.organization import Organization
+from app.models.organization_member import OrganizationMember
+from app.models.department import Department
+from app.schemas.user import UserCreate
 from passlib.context import CryptContext # 用于密码哈希
 
 # 初始化密码哈希上下文

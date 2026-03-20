@@ -24,16 +24,16 @@ from fastapi.responses import FileResponse, JSONResponse
 
 # --- 导入你的数据库模型和API路由 ---
 # 确保你的数据库配置和API路由导入是正确的
-from backend.app.database import engine, Base
-from backend.app.api import user_api
-from backend.app.api import survey_api
-from backend.app.api import question_api
-from backend.app.api import answer_api
-from backend.app.api import org_api
-from backend.app.api import llm_api
-from backend.app.api import department_api
-from backend.app.api import participant_api
-from backend.app.api import analytics_api, category_api, tag_api, analysis_api
+from app.database import engine, Base
+from app.api import user_api
+from app.api import survey_api
+from app.api import question_api
+from app.api import answer_api
+from app.api import org_api
+from app.api import llm_api
+from app.api import department_api
+from app.api import participant_api
+from app.api import analytics_api, category_api, tag_api, analysis_api
 
 # --- 数据库初始化 ---
 # 这一步会确保你的数据库表被创建。
@@ -82,7 +82,7 @@ app = FastAPI(
 # STATIC_FRONTEND_DIR = "survey_product_doc/frontend/out"
 #
 # 这里的路径是相对于 Render 部署时运行 'uvicorn' 命令的当前工作目录 (通常是项目根目录)。
-STATIC_FRONTEND_DIR = "frontend/dist"
+STATIC_FRONTEND_DIR = "../frontend/dist"
 
 # --- CORS 中间件配置 ---
 # 本地开发时用的源
@@ -90,6 +90,8 @@ local_origins = [
     "http://localhost:5173", # Vite 默认端口
     "http://localhost:8080", # Vue CLI 默认端口 (if applicable)
     "http://127.0.0.1:5173",
+    "http://localhost:8000", # 后端服务前端的情况
+    "http://127.0.0.1:8000", # 后端服务前端的情况
 ]
 
 # !!! 生产环境安全建议 !!!
@@ -123,6 +125,12 @@ app.include_router(llm_api.router, tags=["llm"], prefix="/api/v1")
 app.include_router(org_api.router, tags=["organization"], prefix="/api/v1")
 app.include_router(department_api.router, tags=["department"], prefix="/api/v1")
 app.include_router(participant_api.router, tags=["participant"], prefix="/api/v1")
+
+# 添加一个简单的analytics端点
+@app.get("/api/v1/analytics/")
+async def analytics_root():
+    return {"message": "Analytics API is working"}
+
 app.include_router(analytics_api.router, tags=["analytics"], prefix="/api/v1")
 app.include_router(category_api.router, tags=["category"], prefix="/api/v1")
 app.include_router(tag_api.router, tags=["tag"], prefix="/api/v1")
