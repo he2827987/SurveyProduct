@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-03-20T10:09:52.320Z",
+  "serviceInfo": {
+    "repository": "",
+    "branch": "",
+    "hasAutoDeploy": false,
+    "status": "",
+    "bodyText": "Sign In to Render\nGitHub\nGitLab\nBitbucket\nGoogle\nor\nEmail\nPassword\nSign in\n\nSign in with SSO\n\nNeed an account? Sign up\nForgot your password? Reset it"
+  },
+  "webhookInfo": {
+    "webhookUrl": "",
+    "webhookElements": [],
+    "hasWebhookSection": false
+  },
+  "recentDeploys": [],
+  "issues": [
+    "未找到 Auto-Deploy 配置选项",
+    "未找到 Webhook 配置"
+  ],
+  "solutions": [
+    "需要通过 Webhook 配置自动部署"
+  ],
+  "autoDeployInfo": {
+    "found": false,
+    "enabled": false,
+    "elementInfo": "",
+    "hasAutoDeployText": false,
+    "hasWebhookText": false,
+    "bodySnippet": "Sign In to Render\nGitHub\nGitLab\nBitbucket\nGoogle\nor\nEmail\nPassword\nSign in\n\nSign in with SSO\n\nNeed an account? Sign up\nForgot your password? Reset it"
+  }
+}
