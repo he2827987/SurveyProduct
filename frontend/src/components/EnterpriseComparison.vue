@@ -161,6 +161,7 @@ import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { Plus, Refresh, Download, Star } from '@element-plus/icons-vue'
 import * as analyticsAPI from '@/api/analytics'
+import * as surveyAPI from '@/api/survey'
 
 // 响应式数据
 const showComparisonForm = ref(false)
@@ -189,10 +190,10 @@ const radarChart = ref(null)
 // 方法
 const loadSurveys = async () => {
   try {
-    const response = await analyticsAPI.getOrganizationSurveys(1) // 假设组织ID为1
-    surveys.value = response.data
+    const response = await surveyAPI.getSurveys()
+    surveys.value = Array.isArray(response) ? response : (response?.items || [])
   } catch (error) {
-    ElMessage.error('加载调研列表失败')
+    console.error('加载调研列表失败:', error)
   }
 }
 

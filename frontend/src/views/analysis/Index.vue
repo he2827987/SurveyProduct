@@ -35,31 +35,37 @@
             </el-select>
             <div v-if="surveyList.length === 0" class="no-surveys-tip">
               暂无调研数据，请先创建调研
-              <br>
-              <el-button type="primary" size="small" @click="setAuthToken" style="margin-top: 10px;">
-                设置认证Token
-              </el-button>
             </div>
           </div>
           
           <div class="filter-item">
-            <span class="filter-label">分组方式：</span>
-            <el-select v-model="groupBy" placeholder="请选择分组方式" class="filter-select" @change="handleGroupChange">
-              <el-option label="按部门" value="department" />
-              <el-option label="按职位" value="position" />
-              <el-option label="按问题" value="question" />
-              <el-option label="按标签" value="tag" />
+            <span class="filter-label">统计方式：</span>
+            <el-select v-model="statsMode" placeholder="统计方式" class="filter-select" @change="handleStatsModeChange">
+              <el-option label="按分数" value="score" />
+              <el-option label="按选项次数" value="option_count" />
             </el-select>
           </div>
-          
-          <div class="filter-item" v-if="groupBy === 'tag'">
-            <span class="filter-label">选择标签：</span>
-            <el-select v-model="selectedTag" placeholder="请选择标签" class="filter-select" @change="refreshData">
+        </div>
+        <div class="filter-row">
+          <div class="filter-item">
+            <span class="filter-label">分组方式：</span>
+            <el-select v-model="groupBy" placeholder="请选择分组方式" class="filter-select" @change="handleGroupChange">
+              <el-option v-if="statsMode === 'score'" label="按部门" value="department" />
+              <el-option v-if="statsMode === 'score'" label="按职位" value="position" />
+              <el-option v-if="statsMode === 'score'" label="按问题得分" value="question" />
+              <el-option v-if="statsMode === 'option_count'" label="按部门" value="department" />
+              <el-option v-if="statsMode === 'option_count'" label="按职位" value="position" />
+            </el-select>
+          </div>
+
+          <div class="filter-item" v-if="statsMode === 'option_count'">
+            <span class="filter-label">选择题目：</span>
+            <el-select v-model="selectedQuestionId" placeholder="请选择题目" class="filter-select-wide" @change="loadAnalysisData">
               <el-option 
-                v-for="tag in tagList" 
-                :key="tag.id" 
-                :label="tag.name" 
-                :value="tag.id"
+                v-for="q in surveyQuestions" 
+                :key="q.id" 
+                :label="(q.text.startsWith('Q' + q.order) ? '' : 'Q' + q.order + ': ') + q.text" 
+                :value="q.id"
               />
             </el-select>
           </div>
@@ -78,12 +84,14 @@
             </el-radio-group>
           </div>
           
-          <div class="chart-container">
+          <div class="chart-container" v-if="chartData.length > 0">
             <AnalysisChart 
               :type="chartType"
               :data="chartData"
               :title="chartTitle"
               :height="400"
+              :series="chartSeries"
+              :xAxisData="chartXAxis"
               @chart-click="handleChartClick"
             />
           </div>
@@ -108,9 +116,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import AnalysisChart from '@/components/AnalysisChart.vue'
 import TagAnalyticsSimple from '@/components/TagAnalyticsSimple.vue'
 import EnterpriseComparison from '@/components/EnterpriseComparison.vue'
 import * as analyticsApi from '@/api/analytics'
@@ -118,219 +127,217 @@ import * as surveyApi from '@/api/survey'
 
 const route = useRoute()
 const loading = ref(false)
-const activeTab = ref('filter') // 默认显示筛选分析板块
+const activeTab = ref('filter')
 
-// 从路由获取初始调研ID
 const initialSurveyId = computed(() => {
   return route.query.id ? parseInt(route.query.id) : null
 })
 
-// 数据源
 const surveyList = ref([])
-const tagList = ref([
-  { id: 1, name: '工作环境' },
-  { id: 2, name: '员工福利' },
-  { id: 3, name: '团队协作' },
-  { id: 4, name: '领导力' },
-  { id: 5, name: '职业发展' }
-])
-
-// 筛选条件
 const selectedSurvey = ref(null)
+const statsMode = ref('score')
 const groupBy = ref('department')
-const selectedTag = ref(null)
+const selectedQuestionId = ref(null)
+const surveyQuestions = ref([])
 
-// 图表类型
 const chartType = ref('pie')
 const chartData = ref([])
+const chartSeries = ref([])
+const chartXAxis = ref([])
 
-// 图表标题
 const chartTitle = computed(() => {
   if (!selectedSurvey.value) return '请选择调研'
-  
   const survey = surveyList.value.find(s => s.id === selectedSurvey.value)
-  return survey ? `${survey.title} - 数据分析` : '数据分析'
+  const suffix = statsMode.value === 'option_count' ? ' - 选项选择次数' : ' - 平均分'
+  return survey ? `${survey.title}${suffix}` : '数据分析'
 })
 
-// 初始化函数
-const setAuthToken = () => {
-  // 设置测试token
-  localStorage.setItem('access_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0dXNlcjIiLCJleHAiOjE3NzMxMzQ5MjB9.Qm-0-XjMUUcTtbguAb05SEABHZtIDT_qYn57ESpWV_A')
-  ElMessage.success('Token已设置，请刷新页面')
-}
-
-// 加载调研列表
 const loadSurveyList = async () => {
   try {
     loading.value = true
-    console.log('正在加载调研列表...')
-    // 尝试加载用户的调研
-    const response = await surveyApi.getSurveys()
-    console.log('调研列表响应:', response)
-    
-    if (Array.isArray(response)) {
-      surveyList.value = response.map(survey => ({
-        id: survey.id,
-        title: survey.title
-      }))
-      console.log('处理后的调研列表:', surveyList.value)
-      
-      // 如果有路由参数，自动选中对应的调研
-      if (initialSurveyId.value) {
-        const found = surveyList.value.find(s => s.id === initialSurveyId.value)
-        if (found) {
-          selectedSurvey.value = initialSurveyId.value
-          console.log('自动选中调研:', found)
-          await loadAnalysisData()
+    let allSurveys = []
+    try {
+      const myResponse = await surveyApi.getSurveys()
+      if (Array.isArray(myResponse)) allSurveys = allSurveys.concat(myResponse)
+    } catch (e) { /* ignore */ }
+    try {
+      const globalResponse = await surveyApi.getGlobalSurveys()
+      if (Array.isArray(globalResponse)) {
+        const existingIds = new Set(allSurveys.map(s => s.id))
+        for (const s of globalResponse) {
+          if (!existingIds.has(s.id)) allSurveys.push(s)
         }
       }
-    } else {
-      ElMessage.warning('调研数据格式异常')
+    } catch (e) { /* ignore */ }
+
+    surveyList.value = allSurveys.map(survey => ({
+      id: survey.id,
+      title: survey.title
+    }))
+
+    if (initialSurveyId.value) {
+      const found = surveyList.value.find(s => s.id === initialSurveyId.value)
+      if (found) {
+        selectedSurvey.value = initialSurveyId.value
+        await onSurveySelected()
+      }
     }
   } catch (error) {
     console.error('加载调研列表失败:', error)
-    ElMessage.error('加载调研列表失败')
-    // 如果加载失败，使用模拟数据
-    surveyList.value = [
-      { id: 37, title: '测试用户调研' },
-      { id: 36, title: '测试调研-题目关联修复验证' }
-    ]
   } finally {
     loading.value = false
   }
 }
 
-// 处理调研变更
+const loadSurveyQuestions = async () => {
+  if (!selectedSurvey.value) return
+  try {
+    const response = await surveyApi.getSurveyQuestions(selectedSurvey.value)
+    surveyQuestions.value = (response || []).map((q, i) => ({
+      id: q.id,
+      text: q.text,
+      type: q.type,
+      order: i + 1
+    }))
+    if (surveyQuestions.value.length > 0) {
+      if (!selectedQuestionId.value || !surveyQuestions.value.find(q => q.id === selectedQuestionId.value)) {
+        selectedQuestionId.value = surveyQuestions.value[0].id
+      }
+    }
+  } catch (error) {
+    console.error('加载题目列表失败:', error)
+    surveyQuestions.value = []
+  }
+}
+
 const handleSurveyChange = async () => {
-  if (selectedSurvey.value) {
-    await loadAnalysisData()
-  }
+  selectedQuestionId.value = null
+  surveyQuestions.value = []
+  await onSurveySelected()
 }
 
-// 处理分组变更
+const onSurveySelected = async () => {
+  await loadSurveyQuestions()
+  await loadAnalysisData()
+}
+
+const handleStatsModeChange = async () => {
+  groupBy.value = 'department'
+  await loadAnalysisData()
+}
+
 const handleGroupChange = async () => {
-  if (selectedSurvey.value) {
-    await loadAnalysisData()
-  }
+  await loadAnalysisData()
 }
 
-// 处理标签页切换
 const handleTabChange = (tab) => {
-  console.log('切换到标签页:', tab)
   activeTab.value = tab
 }
 
-// 刷新数据
-const refreshData = async () => {
-  if (selectedSurvey.value) {
-    await loadAnalysisData()
-  }
-}
+const handleChartTypeChange = () => {}
 
-// 加载分析数据
 const loadAnalysisData = async () => {
   if (!selectedSurvey.value) return
-  
+
   try {
     loading.value = true
-    console.log('正在加载分析数据，调研ID:', selectedSurvey.value)
-    
-    // 根据分组方式生成不同的模拟数据
-    let mockData = []
-    
-    switch (groupBy.value) {
-      case 'department':
-        mockData = [
-          { name: '技术部', value: 85 },
-          { name: '产品部', value: 78 },
-          { name: '市场部', value: 92 },
-          { name: '行政部', value: 75 },
-          { name: '财务部', value: 88 }
-        ]
-        break
-      case 'position':
-        mockData = [
-          { name: '初级员工', value: 76 },
-          { name: '中级员工', value: 85 },
-          { name: '高级员工', value: 90 },
-          { name: '管理层', value: 88 }
-        ]
-        break
-      case 'question':
-        mockData = [
-          { name: '满意度', value: 82 },
-          { name: '工作环境', value: 78 },
-          { name: '团队合作', value: 86 },
-          { name: '薪资福利', value: 73 },
-          { name: '发展机会', value: 80 }
-        ]
-        break
-      case 'tag':
-        mockData = tagList.value.map(tag => ({
-          name: tag.name,
-          value: Math.floor(Math.random() * 30) + 70
-        }))
-        break
-      default:
-        mockData = [
-          { name: '选项A', value: 30 },
-          { name: '选项B', value: 45 },
-          { name: '选项C', value: 25 }
-        ]
+    chartData.value = []
+    chartSeries.value = []
+    chartXAxis.value = []
+
+    if (statsMode.value === 'score') {
+      await loadScoreData()
+    } else {
+      await loadOptionCountData()
     }
-    
-    chartData.value = mockData
-    console.log('分析数据已加载:', chartData.value)
+
+    if (chartData.value.length === 0) {
+      chartData.value = [{ name: '暂无数据', value: 0 }]
+    }
   } catch (error) {
     console.error('加载分析数据失败:', error)
-    ElMessage.error('加载分析数据失败')
+    chartData.value = []
   } finally {
     loading.value = false
   }
 }
 
-// 处理图表点击
+const loadScoreData = async () => {
+  if (groupBy.value === 'question') {
+    const scores = await analyticsApi.getQuestionScores(selectedSurvey.value)
+    chartData.value = (scores || []).map(item => ({
+      name: item.question_text
+        ? (item.question_text.length > 12 ? item.question_text.substring(0, 12) + '...' : item.question_text)
+        : `Q${item.question_id}`,
+      value: item.avg_score || 0
+    }))
+  } else {
+    const response = await analyticsApi.getSurveyAnalytics(selectedSurvey.value, groupBy.value)
+    const stats = response?.stats || response || []
+    chartData.value = stats.map(item => ({
+      name: item.key || item.dimension_value || '未知',
+      value: item.average_score || item.avg_score || item.total_score_sum || 0
+    }))
+  }
+}
+
+const loadOptionCountData = async () => {
+  if (!selectedQuestionId.value) return
+
+  const chartsData = await analyticsApi.getOptionCharts(selectedSurvey.value, { dimension: groupBy.value })
+
+  const questionData = (chartsData || []).find(q => String(q.id) === String(selectedQuestionId.value))
+  if (!questionData || !questionData.data) {
+    chartData.value = [{ name: '暂无数据', value: 0 }]
+    return
+  }
+
+  chartData.value = questionData.data.map(opt => ({
+    name: opt.name,
+    value: opt.value
+  }))
+
+  const allGroups = new Set()
+  for (const opt of questionData.data) {
+    for (const b of (opt.breakdown || [])) {
+      allGroups.add(b.name)
+    }
+  }
+  const groups = [...allGroups].sort()
+
+  chartXAxis.value = questionData.data
+    .filter(opt => opt.name !== '(未作答)')
+    .map(opt => opt.name)
+  
+  chartSeries.value = groups.map(group => ({
+    name: group,
+    value: questionData.data
+      .filter(opt => opt.name !== '(未作答)')
+      .map(opt => {
+        const found = (opt.breakdown || []).find(b => b.name === group)
+        return found ? found.value : 0
+      })
+  }))
+}
+
 const handleChartClick = (event) => {
   console.log('Chart clicked:', event)
 }
 
-// 处理图表类型变更
-const handleChartTypeChange = (type) => {
-  console.log('Chart type changed to:', type)
-  if (selectedSurvey.value) {
-    loadAnalysisData()
-  }
-}
-
-// 导出数据
 const exportData = () => {
   ElMessage.success('数据导出功能开发中')
 }
 
-// 生成总结
 const generateSummary = () => {
   ElMessage.success('总结生成功能开发中')
 }
 
-
-
-// 初始化
 onMounted(async () => {
-  console.log('数据分析页面已挂载，开始初始化...')
-  
-  // 检查是否已登录
   const token = localStorage.getItem('access_token')
   if (!token) {
-    console.log('未找到认证token')
     ElMessage.warning('请先登录')
-    // 设置模拟数据用于展示
-    surveyList.value = [
-      { id: 37, title: '测试用户调研' },
-      { id: 36, title: '测试调研-题目关联修复验证' }
-    ]
     return
   }
-  
   await loadSurveyList()
 })
  </script>
@@ -396,6 +403,14 @@ onMounted(async () => {
 
 .filter-select {
   width: 200px;
+}
+
+.filter-select-wide {
+  width: 300px;
+}
+
+.filter-row + .filter-row {
+  margin-top: 15px;
 }
 
 .no-surveys-tip {

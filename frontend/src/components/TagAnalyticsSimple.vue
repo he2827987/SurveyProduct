@@ -66,8 +66,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 import * as analyticsApi from '@/api/analytics'
 import * as echarts from 'echarts'
 
@@ -84,7 +85,6 @@ const tagScoreChart = ref(null)
 
 const loadTagData = async () => {
   try {
-    // 模拟API调用，实际应该调用后端API
     const mockData = [
       {
         tag_id: 1,
@@ -114,13 +114,12 @@ const loadTagData = async () => {
     
     tagData.value = mockData
     
-    // 更新概览统计
     overviewStats.value[0].value = mockData.length
     overviewStats.value[1].value = mockData.reduce((sum, tag) => sum + tag.question_count, 0)
     overviewStats.value[2].value = mockData.reduce((sum, tag) => sum + tag.total_score, 0)
     overviewStats.value[3].value = (mockData.reduce((sum, tag) => sum + tag.avg_score, 0) / mockData.length).toFixed(1)
     
-    // 渲染图表
+    await nextTick()
     renderCharts()
     
     console.log('标签数据加载成功')
@@ -131,16 +130,17 @@ const loadTagData = async () => {
 }
 
 const renderCharts = () => {
-  // 渲染标签分布饼图 - 使用ECharts
   if (tagDistributionChart.value && tagData.value.length > 0) {
+    const el = tagDistributionChart.value
+    if (el.clientWidth === 0 || el.clientHeight === 0) return
     const chartData = tagData.value.map(tag => ({
       name: tag.tag_name,
       value: tag.question_count
     }))
     
-    // 使用ECharts创建饼图
     import('echarts').then(echarts => {
-      const chart = echarts.init(tagDistributionChart.value)
+      if (el.clientWidth === 0) return
+      const chart = echarts.init(el)
       const option = {
         tooltip: {
           trigger: 'item',
@@ -168,22 +168,23 @@ const renderCharts = () => {
       }
       chart.setOption(option)
       
-      // 窗口大小变化时重新渲染
       window.addEventListener('resize', () => {
         chart.resize()
       })
     })
   }
   
-  // 渲染标签分数柱状图 - 使用ECharts
   if (tagScoreChart.value && tagData.value.length > 0) {
+    const el = tagScoreChart.value
+    if (el.clientWidth === 0 || el.clientHeight === 0) return
     const chartData = tagData.value.map(tag => ({
       name: tag.tag_name,
       value: tag.avg_score
     }))
     
     import('echarts').then(echarts => {
-      const chart = echarts.init(tagScoreChart.value)
+      if (el.clientWidth === 0) return
+      const chart = echarts.init(el)
       const option = {
         tooltip: {
           trigger: 'axis',
@@ -217,7 +218,6 @@ const renderCharts = () => {
       }
       chart.setOption(option)
       
-      // 窗口大小变化时重新渲染
       window.addEventListener('resize', () => {
         chart.resize()
       })
@@ -225,10 +225,31 @@ const renderCharts = () => {
   }
 }
 
+let chartsRendered = false
+
 onMounted(() => {
-  // 初始化
   loadTagData()
+  // Retry rendering when tab becomes visible
+  const observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && !chartsRendered && tagData.value.length > 0) {
+      chartsRendered = true
+      nextTick(() => renderCharts())
+      observer.disconnect()
+    }
+  })
+  nextTick(() => {
+    const el = document.querySelector('.tag-analytics')
+    if (el) observer.observe(el)
+  })
 })
+
+const tryRenderCharts = () => {
+  if (chartsRendered) return
+  if (tagData.value.length > 0 && tagDistributionChart.value && tagDistributionChart.value.clientWidth > 0) {
+    chartsRendered = true
+    renderCharts()
+  }
+}
 </script>
 
 <style scoped>

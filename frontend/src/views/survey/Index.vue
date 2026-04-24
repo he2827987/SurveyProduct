@@ -94,7 +94,7 @@
                 </el-button>
                 
                 <!-- 详细答案 -->
-                <el-button type="primary" link @click="router.push(`/survey/${scope.row.id}/subjective-answers`)">
+                <el-button type="primary" link @click="openSubjectiveDialog(scope.row)">
                   详细答案
                 </el-button>
                 
@@ -265,7 +265,7 @@
     </el-dialog>
     
     <SubjectiveAnswersDialog
-      v-model:visible="subjectiveDialog.visible"
+      v-model="subjectiveDialog.visible"
       :survey-id="subjectiveDialog.surveyId"
       :title="subjectiveDialog.title"
     />
@@ -281,6 +281,7 @@ import { useRouter, useRoute } from 'vue-router'
 import * as surveyApi from '@/api/survey'
 import * as questionApi from '@/api/question'
 import QRCodeGenerator from '@/components/QRCodeGenerator.vue'
+import SubjectiveAnswersDialog from '@/components/SubjectiveAnswersDialog.vue'
 
 // ===== 路由和基础状态 =====
 const router = useRouter()
@@ -417,6 +418,12 @@ const qrDialog = ref({
   surveyId: null, // 调研ID
   description: '', // 调研描述
   responseCount: 0 // 答题人数
+})
+
+const subjectiveDialog = ref({
+  visible: false,
+  surveyId: null,
+  title: ''
 })
 
 // ===== 生命周期钩子 =====
@@ -716,6 +723,12 @@ const generateQrCode = (survey) => {
   qrDialog.value.description = survey.description || ''
   qrDialog.value.responseCount = survey.response_count || 0
   qrDialog.value.visible = true
+}
+
+const openSubjectiveDialog = (survey) => {
+  subjectiveDialog.value.surveyId = survey.id
+  subjectiveDialog.value.title = survey.title + ' - 主观题答案'
+  subjectiveDialog.value.visible = true
 }
 
 /**

@@ -347,3 +347,7 @@ export function getOrganizationSurveys(organizationId) {
 export function getPieOptionDistribution(surveyId, params = {}) {
   return request.get(`/analysis/survey/${surveyId}/pie`, { params })
 }
+
+export function getOptionCharts(surveyId, params = {}) {
+  return request.get(`/analysis/survey/${surveyId}/charts/options`, { params })
+}

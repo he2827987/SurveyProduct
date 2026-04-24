@@ -189,7 +189,6 @@ const chartOption = computed(() => {
     
     case 'bar':
       if (isMultiSeries) {
-        // 多系列柱状图（企业对比）
         return {
           ...baseOption,
           xAxis: {
@@ -207,13 +206,13 @@ const chartOption = computed(() => {
             name: series.name,
             type: 'bar',
             data: series.value,
+            label: { show: true, position: 'top', fontSize: 12, formatter: '{c}' },
             itemStyle: {
               color: getSeriesColor(index)
             }
           }))
         }
       } else {
-        // 单系列柱状图
         return {
           ...baseOption,
           xAxis: {
@@ -230,6 +229,7 @@ const chartOption = computed(() => {
             name: '数量',
             type: 'bar',
             data: props.data.map(item => item.value),
+            label: { show: true, position: 'top', fontSize: 12, formatter: '{c}' },
             itemStyle: {
               color: '#409eff'
             }
@@ -239,7 +239,6 @@ const chartOption = computed(() => {
     
     case 'line':
       if (isMultiSeries) {
-        // 多系列折线图（企业对比）
         return {
           ...baseOption,
           xAxis: {
@@ -255,13 +254,13 @@ const chartOption = computed(() => {
             type: 'line',
             data: series.value,
             smooth: true,
+            label: { show: true, position: 'top', fontSize: 12, formatter: '{c}' },
             itemStyle: {
               color: getSeriesColor(index)
             }
           }))
         }
       } else {
-        // 单系列折线图
         return {
           ...baseOption,
           xAxis: {
@@ -276,6 +275,7 @@ const chartOption = computed(() => {
             type: 'line',
             data: props.data.map(item => item.value),
             smooth: true,
+            label: { show: true, position: 'top', fontSize: 12, formatter: '{c}' },
             itemStyle: {
               color: '#67c23a'
             }
