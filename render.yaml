@@ -3,6 +3,8 @@ services:
     name: survey-product-backend
     env: python
     plan: free
+    repo: https://github.com/he2827987/SurveyProduct
+    branch: main
     buildCommand: |
       npm install --prefix frontend &&
       cd frontend && npm run build && cd .. &&
@@ -19,10 +21,8 @@ services:
         sync: false
       - key: ENVIRONMENT
         value: "production"
-  - type: pserv
-    name: survey-product-db
-    env: postgres
-    plan: free
+databases:
+  - name: survey-product-db
     databaseName: surveyproduct_db
     user: surveyproduct_db_user
-    ipAllowList: []
+    plan: free
