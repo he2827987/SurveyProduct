@@ -1,28 +1,19 @@
 services:
   - type: web
-    name: survey-product-backend
+    name: SurveyProduct
     env: python
     plan: free
     repo: https://github.com/he2827987/SurveyProduct
     branch: main
-    buildCommand: |
-      npm install --prefix frontend &&
-      cd frontend && npm run build && cd .. &&
-      pip install -r requirements.txt
+    region: oregon
+    buildCommand: npm install --prefix frontend && cd frontend && npm run build && cd .. && pip install -r requirements.txt
     startCommand: python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: survey-product-db
-          property: connectionString
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: OPENROUTER_API_KEY
         sync: false
       - key: ENVIRONMENT
         value: "production"
-databases:
-  - name: survey-product-db
-    databaseName: surveyproduct_db
-    user: surveyproduct_db_user
-    plan: free
