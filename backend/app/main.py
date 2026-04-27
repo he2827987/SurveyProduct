@@ -39,17 +39,18 @@ from app.api import analytics_api, category_api, tag_api, analysis_api
 # 这一步会确保你的数据库表被创建。
 # 在生产环境中，可能更倾向于使用 alembic 或其他迁移工具。
 def run_alembic_migrations():
-    """
-    Run pending Alembic migrations before the app starts.
-    """
     try:
-        root_dir = Path(__file__).resolve().parents[2]
-        alembic_cfg = Config(root_dir / "alembic.ini")
+        root_dir = Path(__file__).resolve().parents[3]
+        alembic_cfg_path = root_dir / "alembic.ini"
+        if not alembic_cfg_path.exists():
+            root_dir = Path(__file__).resolve().parents[2]
+            alembic_cfg_path = root_dir / "alembic.ini"
+        alembic_cfg = Config(str(alembic_cfg_path))
         db_url = os.getenv("DATABASE_URL")
         if db_url:
             alembic_cfg.set_main_option("sqlalchemy.url", db_url)
         command.upgrade(alembic_cfg, "head")
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:
         logging.warning("Unable to run alembic migrations automatically: %s", exc)
 
 
@@ -87,6 +88,8 @@ app = FastAPI(
 #
 # 这里的路径是相对于 Render 部署时运行 'uvicorn' 命令的当前工作目录 (通常是项目根目录)。
 STATIC_FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "dist")
+if not os.path.isdir(STATIC_FRONTEND_DIR):
+    STATIC_FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "..", "frontend", "dist")
 
 # --- CORS 中间件配置 ---
 # 本地开发时用的源
