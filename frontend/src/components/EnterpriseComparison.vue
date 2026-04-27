@@ -190,8 +190,21 @@ const radarChart = ref(null)
 // 方法
 const loadSurveys = async () => {
   try {
-    const response = await surveyAPI.getSurveys()
-    surveys.value = Array.isArray(response) ? response : (response?.items || [])
+    let allSurveys = []
+    try {
+      const myResponse = await surveyAPI.getSurveys()
+      if (Array.isArray(myResponse)) allSurveys = allSurveys.concat(myResponse)
+    } catch (e) { /* ignore */ }
+    try {
+      const globalResponse = await surveyAPI.getGlobalSurveys()
+      if (Array.isArray(globalResponse)) {
+        const existingIds = new Set(allSurveys.map(s => s.id))
+        for (const s of globalResponse) {
+          if (!existingIds.has(s.id)) allSurveys.push(s)
+        }
+      }
+    } catch (e) { /* ignore */ }
+    surveys.value = allSurveys
   } catch (error) {
     console.error('加载调研列表失败:', error)
   }
@@ -199,15 +212,15 @@ const loadSurveys = async () => {
 
 const loadAvailableCompanies = async () => {
   try {
-    // 模拟企业数据，实际应该从API获取
-    availableCompanies.value = [
-      { id: 1, name: '科技有限公司' },
-      { id: 2, name: '创新软件公司' },
-      { id: 3, name: '数字服务集团' },
-      { id: 4, name: '智能制造企业' }
-    ]
+    const response = await analyticsAPI.getOrganizations()
+    const orgs = Array.isArray(response) ? response : (response?.data || response?.items || [])
+    availableCompanies.value = orgs.map(org => ({
+      id: org.id,
+      name: org.name
+    }))
   } catch (error) {
     console.error('加载企业列表失败:', error)
+    availableCompanies.value = []
   }
 }
 
@@ -229,66 +242,71 @@ const runComparison = async () => {
   analysisMessage.value = '正在收集数据...'
 
   try {
-    // 模拟分析进度
     const progressInterval = setInterval(() => {
       if (analysisProgress.value < 80) {
         analysisProgress.value += 10
         if (analysisProgress.value === 20) analysisMessage.value = '正在分析数据...'
         if (analysisProgress.value === 40) analysisMessage.value = '正在生成对比图表...'
         if (analysisProgress.value === 60) analysisMessage.value = '正在计算指标...'
-        if (analysisProgress.value === 80) analysisMessage.value = '正在生成报告...'
+        if (comparisonProgress.value === 80) analysisMessage.value = '正在生成报告...'
       }
     }, 300)
 
-    // 生成模拟对比数据
-    await new Promise(resolve => setTimeout(resolve, 3000))
+    const surveyId = comparisonForm.value.surveyId
+    const selectedOrgIds = comparisonForm.value.companies
+    const primaryOrgId = selectedOrgIds[0]
+    const compareOrgIds = selectedOrgIds.slice(1)
+
+    const response = await analyticsAPI.getEnterpriseComparison(primaryOrgId, surveyId, compareOrgIds)
+    const data = response?.data || response || []
 
     clearInterval(progressInterval)
     analysisProgress.value = 100
     analysisStatus.value = 'success'
     analysisMessage.value = '分析完成！'
 
-    // 生成对比结果
-    generateComparisonResults()
+    if (data.length > 0) {
+      comparisonTableData.value = data.map(item => ({
+        company: item.organization_name || item.company || item.name || '未知',
+        score: Math.round(item.average_score || item.avg_score || item.total_score || 0),
+        satisfaction: Math.round(item.satisfaction || item.average_score || 0),
+        environment: Math.round(item.environment || 0),
+        salary: Math.round(item.salary || 0),
+        teamwork: Math.round(item.teamwork || 0),
+        development: Math.round(item.development || 0),
+        participants: item.response_count || item.participants || 0,
+        response_rate: Math.round(item.response_rate || 0)
+      }))
+
+      comparisonResults.value = {
+        dimension: comparisonForm.value.dimension,
+        companies: comparisonTableData.value.map(d => d.company),
+        data: comparisonTableData.value,
+        generated_at: new Date().toISOString()
+      }
+    } else {
+      comparisonTableData.value = []
+      comparisonResults.value = {
+        dimension: comparisonForm.value.dimension,
+        companies: [],
+        data: [],
+        generated_at: new Date().toISOString()
+      }
+      ElMessage.info('所选企业暂无对比数据')
+    }
 
     setTimeout(() => {
       isAnalyzing.value = false
       showComparisonForm.value = false
-      renderCharts()
+      if (comparisonResults.value.data.length > 0) {
+        renderCharts()
+      }
     }, 1000)
 
   } catch (error) {
-    ElMessage.error('对比分析失败: ' + error.message)
+    console.error('对比分析失败:', error)
+    ElMessage.error('对比分析失败: ' + (error.message || '请检查参数后重试'))
     isAnalyzing.value = false
-  }
-}
-
-const generateComparisonResults = () => {
-  const companies = comparisonForm.value.companies.map(id => 
-    availableCompanies.value.find(c => c.id === id)
-  )
-
-  comparisonTableData.value = companies.map((company, index) => {
-    // 生成模拟数据
-    const baseScore = 70 + Math.random() * 25
-    return {
-      company: company.name,
-      score: Math.round(baseScore),
-      satisfaction: Math.round(baseScore + (Math.random() - 0.5) * 10),
-      environment: Math.round(baseScore + (Math.random() - 0.5) * 10),
-      salary: Math.round(baseScore + (Math.random() - 0.5) * 15),
-      teamwork: Math.round(baseScore + (Math.random() - 0.5) * 10),
-      development: Math.round(baseScore + (Math.random() - 0.5) * 10),
-      participants: Math.floor(50 + Math.random() * 200),
-      response_rate: Math.round(75 + Math.random() * 20)
-    }
-  })
-
-  comparisonResults.value = {
-    dimension: comparisonForm.value.dimension,
-    companies: companies.map(c => c.name),
-    data: comparisonTableData.value,
-    generated_at: new Date().toISOString()
   }
 }
 
