@@ -19,10 +19,11 @@ class Settings(BaseSettings):
 
     # 使用 Pydantic V2 的 SettingsConfigDict 来配置
     # 这会告诉 Pydantic 去哪里找 .env 文件
+    _env_files = [] if os.getenv("ENVIRONMENT") == "production" else ["backend/.env", ".env", "../backend/.env"]
     model_config = SettingsConfigDict(
-        env_file=["backend/.env", ".env", "../backend/.env"],  # 尝试多个路径
-        env_file_encoding="utf-8", # 指定 .env 文件编码
-        extra="ignore"        # 忽略 .env 中未定义的变量
+        env_file=_env_files,
+        env_file_encoding="utf-8",
+        extra="ignore"
     )
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
