@@ -61,6 +61,10 @@ load_env_manually()
 # 实例化配置对象
 settings = Settings()
 
+print(f"[Config] ENVIRONMENT={os.getenv('ENVIRONMENT', 'NOT SET')}")
+print(f"[Config] DATABASE_URL={settings.DATABASE_URL[:50]}...")
+print(f"[Config] ENVIRON DATABASE_URL={os.getenv('DATABASE_URL', 'NOT SET')[:50]}...")
+
 # --- 调试信息 ---
 # 生产环境中可以关闭调试信息，但本地开发时有用
 if os.getenv("ENVIRONMENT") != "production":
