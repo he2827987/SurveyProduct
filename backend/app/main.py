@@ -54,7 +54,11 @@ def run_alembic_migrations():
 
 
 run_alembic_migrations()
-Base.metadata.create_all(bind=engine)
+
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    logging.warning("Database table creation failed: %s", e)
 
 # --- FastAPI 应用初始化 ---
 app = FastAPI(
