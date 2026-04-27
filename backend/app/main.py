@@ -82,7 +82,7 @@ app = FastAPI(
 # STATIC_FRONTEND_DIR = "survey_product_doc/frontend/out"
 #
 # 这里的路径是相对于 Render 部署时运行 'uvicorn' 命令的当前工作目录 (通常是项目根目录)。
-STATIC_FRONTEND_DIR = "../frontend/dist"
+STATIC_FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "dist")
 
 # --- CORS 中间件配置 ---
 # 本地开发时用的源
@@ -139,11 +139,12 @@ app.include_router(analysis_api.router, tags=["analysis"], prefix="/api/v1")
 # --- 3. 挂载前端静态文件 ---
 # 注意顺序：先注册 API，再挂载静态目录，避免 /api/* 被静态服务截获导致 404/405
 # 为避免根路径 mount 抢占导致 404，这里仅挂载资源目录到 /assets
-assets_dir = os.path.join(STATIC_FRONTEND_DIR, "assets")
-if os.path.isdir(assets_dir):
-    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-else:
-    app.mount("/assets", StaticFiles(directory=STATIC_FRONTEND_DIR), name="assets")
+if os.path.isdir(STATIC_FRONTEND_DIR):
+    assets_dir = os.path.join(STATIC_FRONTEND_DIR, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+    else:
+        app.mount("/assets", StaticFiles(directory=STATIC_FRONTEND_DIR), name="assets")
 
 # --- 4. Catch-all 路由用于 SPA 回退 ---
 # 对于非 API 路径，回退到前端 index.html，避免刷新 404
@@ -154,7 +155,7 @@ def spa_fallback(full_path: str):
     index_file = os.path.join(STATIC_FRONTEND_DIR, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
-    return JSONResponse(status_code=404, content={"detail": "Index file not found"})
+    return JSONResponse(status_code=200, content={"message": "Survey API is running", "docs": "/docs"})
 
 # --- 保留其他测试或健康检查路由 ---
 # 这些路由不会与静态文件服务或API路由冲突
