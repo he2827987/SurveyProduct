@@ -63,3 +63,6 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Nested project copy (not used)
+survey_product_doc/
