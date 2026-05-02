@@ -1,49 +1,11 @@
 # backend/app/api/deps.py
 
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
-from app.config import settings
+from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
-from typing import Optional
 from app import crud, models, schemas
-from app.config import settings
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.security import get_current_user
-
-engine = create_engine(settings.DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close() 
-
-# --- 新增 get_current_user 函数 ---
-
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token") # "token" 是你获取 JWT 的登录路由
-
-# def get_current_user(token: str = Depends(oauth2_scheme)):
-#     credentials_exception = HTTPException(
-#         status_code=status.HTTP_401_UNAUTHORIZED,
-#         detail="无法验证凭据",
-#         headers={"WWW-Authenticate": "Bearer"},
-#     )
-#     try:
-#         # 解码 JWT Token
-#         # 确保你的 JWT payload 中有一个 "sub" 字段存储用户ID
-#         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-#         user_id: Optional[str] = payload.get("sub") # "sub" 通常用于存储主题，这里是用户ID
-#         if user_id is None:
-#             raise credentials_exception
-#         # 返回一个包含用户ID的字典。如果需要更多用户信息，可以在这里从数据库加载。
-#         return {"id": int(user_id)} # 确保返回的是一个包含 'id' 键的字典
-#     except JWTError:
-#         raise credentials_exception
 
 async def get_survey_by_id_and_owner(
     survey_id: int,
