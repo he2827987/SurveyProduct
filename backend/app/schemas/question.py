@@ -191,28 +191,11 @@ class QuestionResponse(QuestionBase):
     包含数据库生成的ID和关联的survey_id
     """
     id: int
-    survey_id: Optional[int] = None
     owner_id: Optional[int] = None
     owner_name: Optional[str] = None
     usage_count: Optional[int] = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-
-    @model_validator(mode="before")
-    def _extract_computed_fields(cls, values):
-        if hasattr(values, 'owner') and values.owner:
-            username = getattr(values.owner, 'username', None)
-            name = getattr(values.owner, 'name', None)
-            if isinstance(values, dict):
-                values['owner_name'] = username or name
-            else:
-                values.owner_name = username or name
-        if isinstance(values, dict):
-            if 'owner_name' not in values or values['owner_name'] is None:
-                values['owner_name'] = None
-            if 'survey_id' not in values:
-                values['survey_id'] = None
-        return values
 
     @model_validator(mode="after")
     def normalize_tags(cls, values):
