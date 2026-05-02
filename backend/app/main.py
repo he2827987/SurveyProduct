@@ -19,8 +19,11 @@ from alembic.config import Config
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles  # <-- 1. 导入 StaticFiles
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+import traceback
 
 # --- 导入你的数据库模型和API路由 ---
 # 确保你的数据库配置和API路由导入是正确的
@@ -67,6 +70,15 @@ app = FastAPI(
     description="API for managing surveys, questions, answers, users, and organizations.",
     version="0.1.0",
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "type": type(exc).__name__}
+    )
 
 # --- 2. 定义前端构建输出目录 ---
 # !!! 非常重要 !!!
