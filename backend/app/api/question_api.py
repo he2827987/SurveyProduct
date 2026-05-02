@@ -24,7 +24,7 @@ router = APIRouter(
 
 # ===== 问卷内问题管理接口 =====
 
-@router.post("/surveys/{survey_id}/questions/", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/surveys/{survey_id}/questions/", status_code=status.HTTP_201_CREATED)
 def create_question_for_survey(
     survey_id: int,
     question: QuestionCreate,
@@ -35,36 +35,45 @@ def create_question_for_survey(
     为指定问卷创建新问题
     
     权限要求：只有问卷的创建者才能添加问题
-    
-    Args:
-        survey_id: 问卷ID
-        question: 问题创建数据
-        db: 数据库会话
-        current_user: 当前认证用户
-        
-    Returns:
-        QuestionResponse: 创建的问题对象
-        
-    Raises:
-        HTTPException: 404 - 问卷未找到
-        HTTPException: 403 - 无权限添加问题
     """
-    # 检查问卷是否存在
     db_survey = crud.get_survey(db, survey_id=survey_id)
     if db_survey is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="问卷未找到")
 
-    # 检查当前用户是否是问卷的创建者
     user_id = current_user.id
     if db_survey.created_by_user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权在此问卷中添加问题")
 
     try:
-        return crud.create_survey_question(db=db, question=question, survey_id=survey_id)
+        result = crud.create_survey_question(db=db, question=question, survey_id=survey_id)
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"创建问题失败: {str(e)}")
+
+    from fastapi.responses import JSONResponse
+    import json
+    resp_data = {
+        "id": result.id,
+        "text": result.text,
+        "type": result.type.value if hasattr(result.type, "value") else result.type,
+        "is_required": result.is_required,
+        "order": result.order,
+        "category_id": result.category_id,
+        "options": json.loads(result.options) if result.options else None,
+        "owner_id": result.owner_id,
+        "owner_name": result.owner_name,
+        "usage_count": result.usage_count,
+        "survey_id": None,
+        "created_at": result.created_at.isoformat() if result.created_at else None,
+        "updated_at": result.updated_at.isoformat() if result.updated_at else None,
+        "tags": [],
+        "min_score": result.min_score,
+        "max_score": result.max_score,
+        "parent_question_id": result.parent_question_id,
+        "trigger_options": json.loads(result.trigger_options) if result.trigger_options else None,
+    }
+    return JSONResponse(content=resp_data, status_code=201)
 
 @router.get("/surveys/{survey_id}/questions/", response_model=List[QuestionResponse])
 def read_questions_for_survey(
