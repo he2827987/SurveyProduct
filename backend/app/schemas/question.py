@@ -192,11 +192,27 @@ class QuestionResponse(QuestionBase):
     """
     id: int
     survey_id: Optional[int] = None
-    owner_id: Optional[int] = None  # 添加创建者ID字段
-    owner_name: Optional[str] = None  # 添加创建者用户名字段
-    usage_count: Optional[int] = 0  # 添加使用次数字段
-    created_at: Optional[datetime] = None  # 创建时间
-    updated_at: Optional[datetime] = None  # 更新时间
+    owner_id: Optional[int] = None
+    owner_name: Optional[str] = None
+    usage_count: Optional[int] = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @model_validator(mode="before")
+    def _extract_computed_fields(cls, values):
+        if hasattr(values, 'owner') and values.owner:
+            username = getattr(values.owner, 'username', None)
+            name = getattr(values.owner, 'name', None)
+            if isinstance(values, dict):
+                values['owner_name'] = username or name
+            else:
+                values.owner_name = username or name
+        if isinstance(values, dict):
+            if 'owner_name' not in values or values['owner_name'] is None:
+                values['owner_name'] = None
+            if 'survey_id' not in values:
+                values['survey_id'] = None
+        return values
 
     @model_validator(mode="after")
     def normalize_tags(cls, values):

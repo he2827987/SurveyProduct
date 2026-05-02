@@ -85,16 +85,6 @@ class Question(Base):
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
-    @property
-    def survey_id(self) -> Optional[int]:
-        return None
-
-    @property
-    def owner_name(self) -> Optional[str]:
-        if self.owner:
-            return getattr(self.owner, 'username', None) or getattr(self.owner, 'name', None)
-        return None
-
     # ===== 反向关系 =====
     # 回答关系（已注释，避免循环依赖）
     # answers = relationship("SurveyAnswer", back_populates="question", cascade="all, delete-orphan")
