@@ -59,7 +59,12 @@ def create_question_for_survey(
     if db_survey.created_by_user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权在此问卷中添加问题")
 
-    return crud.create_survey_question(db=db, question=question, survey_id=survey_id)
+    try:
+        return crud.create_survey_question(db=db, question=question, survey_id=survey_id)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"创建问题失败: {str(e)}")
 
 @router.get("/surveys/{survey_id}/questions/", response_model=List[QuestionResponse])
 def read_questions_for_survey(
