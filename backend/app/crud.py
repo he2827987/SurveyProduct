@@ -313,40 +313,33 @@ def create_survey_question(db: Session, question: QuestionCreate, survey_id: int
     """
     from app.models.survey_question import SurveyQuestion
     
-    # 创建全局题目
-    question_data = question.dict(exclude_unset=True, exclude={"options", "tags"})
-    tags_data = question.tags
-    
-    # 确保设置owner_id
-    if "owner_id" not in question_data:
-        # 从调研中获取创建者ID
-        survey = db.query(models.Survey).filter(models.Survey.id == survey_id).first()
-        if survey:
-            question_data["owner_id"] = survey.created_by_user_id
-    
-    # 确保设置默认值
+    question_data = question.model_dump(exclude_unset=True, exclude={"options", "tags"})
+    tags_data = question_data.pop('tags', []) if 'tags' in question_data else []
+    if not tags_data and question.tags:
+        tags_data = question.tags
+
+    survey = db.query(models.Survey).filter(models.Survey.id == survey_id).first()
+    if survey:
+        question_data["owner_id"] = survey.created_by_user_id
+        if survey.organization_id and "organization_id" not in question_data:
+            question_data["organization_id"] = survey.organization_id
+
     if "usage_count" not in question_data:
         question_data["usage_count"] = 0
-    if "order" not in question_data:
-        question_data["order"] = 0
-    
-    print(f"Debug: 创建问题数据: {question_data}")  # 调试信息
-    
-    db_question = models.Question(
-        **question_data,
-        survey_id=None  # 全局题目，不直接关联到调研
-    )
-    
-    # 处理 options，序列化为 JSON 字符串
+
     if question.options is not None:
         options_data = question.options
-        # 如果是 Pydantic 对象列表，先转为 dict
         if isinstance(options_data, list):
             options_data = [
-                opt.dict() if hasattr(opt, 'dict') else opt 
+                opt if isinstance(opt, (dict, str)) else opt.model_dump()
                 for opt in options_data
             ]
-        db_question.options = cast(str, json.dumps(options_data, ensure_ascii=False))
+        question_data['options'] = json.dumps(options_data, ensure_ascii=False)
+
+    if question.trigger_options is not None:
+        question_data['trigger_options'] = json.dumps(question.trigger_options, ensure_ascii=False)
+
+    db_question = models.Question(**question_data)
 
     db.add(db_question)
     db.commit()

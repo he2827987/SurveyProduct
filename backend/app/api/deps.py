@@ -53,7 +53,7 @@ async def get_survey_by_id_and_owner(
     db_survey = crud.get_survey(db, survey_id=survey_id)
     if not db_survey:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found")
-    if db_survey.owner_id != current_user.id:
+    if db_survey.created_by_user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this survey's answers")
     return db_survey
 

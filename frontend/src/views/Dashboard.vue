@@ -129,9 +129,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeMount } from 'vue'
+import { ref, onBeforeMount } from 'vue'
 import { useRouter } from 'vue-router'
 import { validateAuthToken } from '@/api/request'
+import request from '@/api/request'
 import { 
   User, 
   Document, 
@@ -147,15 +148,15 @@ import {
 const router = useRouter()
 const loading = ref(false)
 
-// 统计数据
 const stats = ref({
-  departmentCount: 5,
-  questionCount: 36,
-  surveyCount: 12,
-  respondentCount: 240
+  departmentCount: 0,
+  questionCount: 0,
+  surveyCount: 0,
+  respondentCount: 0
 })
 
-// 快速入口
+const recentSurveys = ref([])
+
 const quickEntries = [
   {
     title: '组织架构管理',
@@ -189,78 +190,40 @@ const quickEntries = [
   }
 ]
 
-// 最近调研
-const recentSurveys = ref([
-  {
-    id: 1,
-    title: '2023年员工满意度调查',
-    status: '已完成',
-    created_at: '2023-12-15 14:30',
-    count: 85
-  },
-  {
-    id: 2,
-    title: '新产品市场反馈收集',
-    status: '进行中',
-    created_at: '2024-01-10 09:15',
-    count: 42
-  },
-  {
-    id: 3,
-    title: '研发部工作环境评估',
-    status: '进行中',
-    created_at: '2024-02-05 16:20',
-    count: 18
-  }
-])
-
-// 在组件挂载前验证 token
 onBeforeMount(async () => {
   const isValid = await validateAuthToken()
   if (!isValid) {
-    // token 无效，已经在 validateAuthToken 中处理了重定向
     return
   }
-
-  // token 有效，继续加载数据
-  getDashboardData()
+  await getDashboardData()
 })
 
-// 页面加载时获取数据
-onMounted(() => {
-  // 数据已经在 onBeforeMount 中加载，这里可以添加其他初始化逻辑
-})
-
-// 获取仪表盘数据
 const getDashboardData = async () => {
   loading.value = true
   try {
-    // 实际项目中这里应该调用接口获取数据
-    // const res = await api.getDashboardData()
-    // stats.value = res.stats
-    // recentSurveys.value = res.recentSurveys
-    
-    // 模拟延迟
-    setTimeout(() => {
-      loading.value = false
-    }, 500)
+    const res = await request.get('/surveys/dashboard/stats')
+    stats.value = {
+      departmentCount: res.departmentCount || 0,
+      questionCount: res.questionCount || 0,
+      surveyCount: res.surveyCount || 0,
+      respondentCount: res.respondentCount || 0,
+    }
+    recentSurveys.value = res.recentSurveys || []
   } catch (error) {
-    console.error(error)
+    console.error('获取仪表盘数据失败:', error)
+  } finally {
     loading.value = false
   }
 }
 
-// 页面跳转
 const goTo = (path) => {
   router.push(path)
 }
 
-// 查看调研详情
 const viewSurvey = (id) => {
   router.push(`/survey?id=${id}`)
 }
 
-// 查看数据分析
 const viewAnalysis = (id) => {
   router.push(`/analysis?id=${id}`)
 }

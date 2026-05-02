@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional, cast
 
 from app.api.deps import get_db
@@ -11,6 +12,9 @@ from app.security import get_current_user
 from app.services import survey_service
 from app.models.user import User as UserModel
 from app.models.survey import Survey as SurveyModel
+from app.models.answer import SurveyAnswer
+from app.models.question import Question
+from app.models.department import Department
 
 router = APIRouter(
     prefix="/surveys",
@@ -28,6 +32,45 @@ def create_survey(
     需要用户认证。
     """
     return survey_service.create_survey(db=db, survey=survey, user_id=cast(int, current_user.id))
+
+@router.get("/dashboard/stats")
+def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    department_count = db.query(func.count(Department.id)).scalar() or 0
+    question_count = db.query(func.count(Question.id)).scalar() or 0
+    survey_count = db.query(func.count(SurveyModel.id)).scalar() or 0
+    respondent_count = db.query(func.count(SurveyAnswer.id)).scalar() or 0
+
+    recent = (
+        db.query(SurveyModel)
+        .order_by(SurveyModel.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    recent_surveys = []
+    for s in recent:
+        answer_count = db.query(func.count(SurveyAnswer.id)).filter(SurveyAnswer.survey_id == s.id).scalar() or 0
+        status_map = {"active": "进行中", "completed": "已完成", "pending": "待发布"}
+        created_at = ""
+        if s.created_at:
+            created_at = s.created_at.strftime("%Y-%m-%d %H:%M") if hasattr(s.created_at, "strftime") else str(s.created_at)
+        recent_surveys.append({
+            "id": s.id,
+            "title": s.title,
+            "status": status_map.get(s.status, s.status),
+            "created_at": created_at,
+            "count": answer_count,
+        })
+
+    return {
+        "departmentCount": department_count,
+        "questionCount": question_count,
+        "surveyCount": survey_count,
+        "respondentCount": respondent_count,
+        "recentSurveys": recent_surveys,
+    }
 
 @router.get("/{survey_id}", response_model=SurveyResponse)
 def get_survey(
@@ -157,7 +200,7 @@ def delete_survey(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权删除此问卷")
 
     survey_service.delete_survey(db=db, survey_id=survey_id)
-    return {"message": "问卷删除成功"} # FastAPI 204 No Content 响应通常不返回内容，但为了清晰可以返回消息
+    return {"message": "问卷删除成功"}
 
 # ===== 移动端调研填写API（公开访问，无需认证） =====
 

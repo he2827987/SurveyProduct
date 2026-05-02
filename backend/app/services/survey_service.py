@@ -156,9 +156,10 @@ def create_survey(db: Session, survey: SurveyCreate, user_id: int):
     如果提供了question_ids，则创建调研与题目的关联关系。
     """
     db_survey = SurveyModel(
-        title=survey.title,  # 使用survey.title，因为schema中定义的是title字段
+        title=survey.title,
         description=survey.description,
-        created_by_user_id=user_id
+        created_by_user_id=user_id,
+        organization_id=survey.organization_id
     )
     db.add(db_survey)
     db.commit()
