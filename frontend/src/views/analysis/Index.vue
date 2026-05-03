@@ -257,16 +257,21 @@ const loadSurveyQuestions = async () => {
   if (!selectedSurvey.value) return
   try {
     const response = await surveyApi.getSurveyQuestions(selectedSurvey.value)
-    surveyQuestions.value = (response || []).map((q, i) => ({
+    const all = (response || []).map((q, i) => ({
       id: q.id,
       text: q.text,
       type: q.type,
       order: i + 1
     }))
+    surveyQuestions.value = statsMode.value === 'option_count'
+      ? all.filter(q => q.type === 'single_choice' || q.type === 'multi_choice')
+      : all
     if (surveyQuestions.value.length > 0) {
       if (!selectedQuestionId.value || !surveyQuestions.value.find(q => q.id === selectedQuestionId.value)) {
         selectedQuestionId.value = surveyQuestions.value[0].id
       }
+    } else {
+      selectedQuestionId.value = null
     }
   } catch (error) {
     console.error('加载题目列表失败:', error)
@@ -287,6 +292,7 @@ const onSurveySelected = async () => {
 
 const handleStatsModeChange = async () => {
   groupBy.value = 'department'
+  await loadSurveyQuestions()
   await loadAnalysisData()
 }
 
