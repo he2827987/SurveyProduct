@@ -584,17 +584,29 @@ const generateSummary = async () => {
   summaryLoading.value = true
   summaryError.value = ''
   summaryData.value = ''
+  ElMessage.info({ message: '正在生成 AI 总结，请稍候...', duration: 0, grouping: true })
 
   try {
     const result = await analyticsApi.getSurveyAISummary(survey.organization_id, selectedSurvey.value)
     if (result && result.summary) {
       summaryData.value = result.summary
+      ElMessage.closeAll()
+      ElMessage.success('AI 总结生成完成')
+      await nextTick()
+      summaryPanelRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     } else {
+      ElMessage.closeAll()
       summaryError.value = '未能生成总结，请稍后重试'
+      await nextTick()
+      summaryPanelRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   } catch (error) {
     console.error('生成总结失败:', error)
+    ElMessage.closeAll()
+    ElMessage.error(error.response?.data?.detail || '生成总结失败，请稍后重试')
     summaryError.value = error.response?.data?.detail || error.message || '生成总结失败，请稍后重试'
+    await nextTick()
+    summaryPanelRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } finally {
     summaryLoading.value = false
   }
