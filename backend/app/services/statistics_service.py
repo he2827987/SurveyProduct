@@ -25,10 +25,12 @@ def get_survey_stats_by_dimension(
     result_map: Dict[str, Dict[str, float]] = {}
     for ans in query.all():
         if dimension == "organization":
-            key = ans.organization_name or (f"组织#{ans.organization_id}" if ans.organization_id is not None else None)
+            key = ans.organization_name or (f"组织#{ans.organization_id}" if ans.organization_id is not None else "未知组织")
+        elif dimension == "department":
+            key = ans.department or "未知部门"
+        elif dimension == "position":
+            key = ans.position or "未知职位"
         else:
-            key = getattr(ans, dimension, None)
-        if not key:
             continue
         if key not in result_map:
             result_map[key] = {"count": 0, "total": 0.0, "avg_sum": 0.0}
@@ -126,13 +128,14 @@ def get_per_question_scores(
         count = info["response_count"]
         total = info["total_score"]
         avg = round(total / count, 2) if count > 0 else 0.0
-        result.append({
-            "question_id": info["question_id"],
-            "question_text": info["question_text"],
-            "response_count": count,
-            "total_score": round(total, 2),
-            "avg_score": avg
-        })
+        if count > 0:
+            result.append({
+                "question_id": info["question_id"],
+                "question_text": info["question_text"],
+                "response_count": count,
+                "total_score": round(total, 2),
+                "avg_score": avg
+            })
 
     return result
 
