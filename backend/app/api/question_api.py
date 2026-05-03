@@ -62,7 +62,6 @@ def create_question_for_survey(
         "category_id": result.category_id,
         "options": json.loads(result.options) if result.options else None,
         "owner_id": result.owner_id,
-        "owner_name": result.owner_name,
         "usage_count": result.usage_count,
         "survey_id": None,
         "created_at": result.created_at.isoformat() if result.created_at else None,
