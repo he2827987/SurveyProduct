@@ -128,13 +128,53 @@
         <div v-else-if="summaryData" class="summary-content" v-html="renderMarkdown(summaryData)" />
       </div>
     </el-dialog>
+
+    <!-- 导出对话框 -->
+    <el-dialog v-model="exportVisible" title="导出数据" width="480px">
+      <div class="export-dialog-content">
+        <p style="margin: 0 0 16px; color: #606266;">请选择要导出的内容和格式：</p>
+        <div class="export-section">
+          <div class="export-label">导出内容</div>
+          <el-select v-model="exportView" placeholder="选择视图" style="width: 100%;" @change="onExportViewChange">
+            <el-option label="筛选分析（图表 + 统计数据）" value="filter" />
+            <el-option label="AI 智能总结" value="summary" />
+            <el-option label="全部（分析 + 总结）" value="all" />
+          </el-select>
+        </div>
+        <div class="export-section">
+          <div class="export-label">导出格式</div>
+          <el-radio-group v-model="exportFormat">
+            <el-radio-button value="pdf">PDF 文件</el-radio-button>
+            <el-radio-button value="png">PNG 图片</el-radio-button>
+          </el-radio-group>
+        </div>
+        <div v-if="exportLoading" style="text-align: center; padding: 20px 0;">
+          <el-icon class="is-loading" :size="24"><Loading /></el-icon>
+          <span style="margin-left: 8px;">正在生成，请稍候...</span>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="exportVisible = false">取消</el-button>
+        <el-button type="primary" @click="doExport" :loading="exportLoading" :disabled="!selectedSurvey">
+          导出
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 隐藏的导出渲染区域 -->
+    <div ref="exportContainerRef" class="export-render-area" style="position: fixed; left: -9999px; top: 0; width: 800px; background: #fff; padding: 30px; z-index: -1;">
+      <div id="export-render-content"></div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading } from '@element-plus/icons-vue'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 import AnalysisChart from '@/components/AnalysisChart.vue'
 import TagAnalyticsSimple from '@/components/TagAnalyticsSimple.vue'
 import EnterpriseComparison from '@/components/EnterpriseComparison.vue'
@@ -346,8 +386,167 @@ const handleChartClick = (event) => {
   console.log('Chart clicked:', event)
 }
 
+const exportVisible = ref(false)
+const exportView = ref('filter')
+const exportFormat = ref('pdf')
+const exportLoading = ref(false)
+const exportContainerRef = ref(null)
+
 const exportData = () => {
-  ElMessage.success('数据导出功能开发中')
+  if (!selectedSurvey.value) {
+    ElMessage.warning('请先选择调研')
+    return
+  }
+  exportView.value = 'filter'
+  exportFormat.value = 'pdf'
+  exportVisible.value = true
+}
+
+const onExportViewChange = () => {}
+
+const doExport = async () => {
+  if (!selectedSurvey.value) return
+  exportLoading.value = true
+  try {
+    const survey = surveyList.value.find(s => s.id === selectedSurvey.value)
+    const title = survey ? survey.title : `调研#${selectedSurvey.value}`
+
+    const renderEl = document.getElementById('export-render-content')
+    if (!renderEl) { exportLoading.value = false; return }
+
+    let html = ''
+
+    if (exportView.value === 'filter' || exportView.value === 'all') {
+      html += buildAnalysisHTML(title)
+    }
+
+    if (exportView.value === 'summary' || exportView.value === 'all') {
+      if (exportView.value === 'all' && html) html += '<hr style="margin: 30px 0; border: none; border-top: 2px solid #e4e7ed;" />'
+      html += await buildSummaryHTML(survey)
+    }
+
+    renderEl.innerHTML = html
+
+    await nextTick()
+    await new Promise(r => setTimeout(r, 500))
+
+    const canvas = await html2canvas(renderEl, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    })
+
+    if (exportFormat.value === 'pdf') {
+      const imgWidth = 210
+      const pageHeight = 297
+      const margin = 15
+      const contentWidth = imgWidth - margin * 2
+      const contentHeight = (canvas.height * contentWidth) / canvas.width
+      let heightLeft = contentHeight
+      let position = margin
+      let page = 0
+
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      while (heightLeft > 0) {
+        if (page > 0) {
+          pdf.addPage()
+          position = margin - (pageHeight - margin * 2) * page
+        }
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, position, contentWidth, contentHeight)
+        heightLeft -= (pageHeight - margin * 2)
+        page++
+      }
+      pdf.save(`${title}-数据分析报告.pdf`)
+    } else {
+      const link = document.createElement('a')
+      link.download = `${title}-数据分析.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    }
+
+    renderEl.innerHTML = ''
+    exportVisible.value = false
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败，请重试')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+const buildAnalysisHTML = (title) => {
+  const chartImg = document.querySelector('.chart-container canvas')
+  let chartSection = ''
+  if (chartImg) {
+    chartSection = `<img src="${chartImg.toDataURL('image/png')}" style="width: 100%; max-height: 400px; object-fit: contain; margin: 16px 0;" />`
+  }
+
+  let dataRows = ''
+  if (chartData.value.length > 0) {
+    const hasRealData = chartData.value.some(d => d.name !== '暂无数据')
+    if (hasRealData) {
+      dataRows = chartData.value
+        .filter(d => d.name !== '暂无数据')
+        .map(d => `<tr><td style="padding:8px 12px;border:1px solid #ebeef5;">${d.name}</td><td style="padding:8px 12px;border:1px solid #ebeef5;text-align:right;">${d.value}</td></tr>`)
+        .join('')
+    }
+  }
+
+  const statsModeText = statsMode.value === 'score' ? '平均分' : '选项次数'
+  const groupByText = groupBy.value === 'department' ? '部门' : groupBy.value === 'position' ? '职位' : '组织'
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #303133;">
+      <h1 style="font-size: 20px; margin: 0 0 6px; color: #303133;">${title}</h1>
+      <p style="font-size: 13px; color: #909399; margin: 0 0 20px;">统计方式：${statsModeText} | 分组：${groupByText} | 导出时间：${new Date().toLocaleString('zh-CN')}</p>
+      ${chartSection}
+      ${dataRows ? `
+        <h3 style="font-size: 16px; margin: 20px 0 10px;">数据明细</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <thead>
+            <tr style="background: #f5f7fa;">
+              <th style="padding:8px 12px;border:1px solid #ebeef5;text-align:left;">${groupByText}</th>
+              <th style="padding:8px 12px;border:1px solid #ebeef5;text-align:right;">${statsModeText}</th>
+            </tr>
+          </thead>
+          <tbody>${dataRows}</tbody>
+        </table>
+      ` : ''}
+    </div>
+  `
+}
+
+const buildSummaryHTML = async (survey) => {
+  let summaryText = ''
+  if (summaryData.value) {
+    summaryText = summaryData.value
+  } else if (survey && survey.organization_id) {
+    try {
+      const result = await analyticsApi.getSurveyAISummary(survey.organization_id, selectedSurvey.value)
+      if (result && result.summary) {
+        summaryData.value = result.summary
+        summaryText = result.summary
+      }
+    } catch (e) {
+      summaryText = '暂无总结数据。请先点击"生成总结"按钮生成 AI 分析。'
+    }
+  } else {
+    summaryText = '暂无总结数据。'
+  }
+
+  const renderedSummary = renderMarkdown(summaryText)
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #303133;">
+      <h2 style="font-size: 18px; margin: 0 0 10px;">AI 智能分析总结</h2>
+      <p style="font-size: 13px; color: #909399; margin: 0 0 20px;">生成时间：${new Date().toLocaleString('zh-CN')}</p>
+      <div style="line-height: 1.8; font-size: 14px;">
+        ${renderedSummary}
+      </div>
+    </div>
+  `
 }
 
 const renderMarkdown = (text) => {
@@ -540,5 +739,24 @@ onMounted(async () => {
 
 .summary-error {
   padding: 20px 0;
+}
+
+.export-dialog-content {
+  padding: 0 10px;
+}
+
+.export-section {
+  margin-bottom: 18px;
+}
+
+.export-label {
+  font-size: 14px;
+  color: #606266;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.export-render-area {
+  pointer-events: none;
 }
 </style>
