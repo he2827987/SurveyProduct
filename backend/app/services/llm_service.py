@@ -27,7 +27,7 @@ logger.critical(f"[LLM Service Module Load] OPENROUTER_API_KEY Status: {key_stat
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 # 你可以选择任何在 OpenRouter 上可用的模型
 # 如果Mistral不可用，可以尝试其他免费模型
-DEFAULT_MODEL = "qwen/qwen3-next-80b-a3b-instruct:free"
+DEFAULT_MODEL = "openrouter/free"
 # 备用模型选项：
 # "meta-llama/llama-3.1-8b-instruct:free"
 # "deepseek/deepseek-chat-v3-0324:free"
