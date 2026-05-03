@@ -220,6 +220,11 @@ const loadAvailableCompanies = async () => {
       id: org.id,
       name: org.name || org.organization_name || `组织#${org.id}`
     }))
+  } catch (error) {
+    console.error('加载企业列表失败:', error)
+    availableCompanies.value = []
+  }
+}
 
 const startNewComparison = () => {
   showComparisonForm.value = true
