@@ -112,6 +112,22 @@
     <div v-show="activeTab === 'enterprise'" class="tab-content">
       <EnterpriseComparison />
     </div>
+
+    <!-- AI总结对话框 -->
+    <el-dialog
+      v-model="summaryVisible"
+      title="AI 智能分析总结"
+      width="70%"
+      top="5vh"
+      destroy-on-close
+    >
+      <div v-loading="summaryLoading" style="min-height: 300px;">
+        <div v-if="summaryError" class="summary-error">
+          <el-alert :title="summaryError" type="error" show-icon :closable="false" />
+        </div>
+        <div v-else-if="summaryData" class="summary-content" v-html="renderMarkdown(summaryData)" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -152,6 +168,11 @@ const chartTitle = computed(() => {
   return survey ? `${survey.title}${suffix}` : '数据分析'
 })
 
+const summaryLoading = ref(false)
+const summaryVisible = ref(false)
+const summaryData = ref('')
+const summaryError = ref('')
+
 const loadSurveyList = async () => {
   try {
     loading.value = true
@@ -172,7 +193,8 @@ const loadSurveyList = async () => {
 
     surveyList.value = allSurveys.map(survey => ({
       id: survey.id,
-      title: survey.title
+      title: survey.title,
+      organization_id: survey.organization_id
     }))
 
     if (initialSurveyId.value) {
@@ -328,8 +350,48 @@ const exportData = () => {
   ElMessage.success('数据导出功能开发中')
 }
 
-const generateSummary = () => {
-  ElMessage.success('总结生成功能开发中')
+const renderMarkdown = (text) => {
+  if (!text) return ''
+  return text
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>')
+}
+
+const generateSummary = async () => {
+  if (!selectedSurvey.value) {
+    ElMessage.warning('请先选择调研')
+    return
+  }
+  const survey = surveyList.value.find(s => s.id === selectedSurvey.value)
+  if (!survey || !survey.organization_id) {
+    ElMessage.warning('该调研未关联组织，无法生成总结')
+    return
+  }
+
+  summaryLoading.value = true
+  summaryError.value = ''
+  summaryData.value = ''
+  summaryVisible.value = true
+
+  try {
+    const result = await analyticsApi.getSurveyAISummary(survey.organization_id, selectedSurvey.value)
+    if (result && result.summary) {
+      summaryData.value = result.summary
+    } else {
+      summaryError.value = '未能生成总结，请稍后重试'
+    }
+  } catch (error) {
+    console.error('生成总结失败:', error)
+    summaryError.value = error.response?.data?.detail || error.message || '生成总结失败，请稍后重试'
+  } finally {
+    summaryLoading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -445,5 +507,38 @@ onMounted(async () => {
 .no-data-tip {
   text-align: center;
   padding: 40px 0;
+}
+
+.summary-content {
+  line-height: 1.8;
+  font-size: 14px;
+  color: #303133;
+}
+
+.summary-content h1 {
+  font-size: 20px;
+  margin: 20px 0 10px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.summary-content h2 {
+  font-size: 18px;
+  margin: 16px 0 8px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 6px;
+}
+
+.summary-content h3 {
+  font-size: 16px;
+  margin: 14px 0 6px;
+}
+
+.summary-content li {
+  margin: 4px 0;
+}
+
+.summary-error {
+  padding: 20px 0;
 }
 </style>

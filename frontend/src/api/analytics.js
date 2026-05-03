@@ -73,8 +73,8 @@ export function getSurveyAnalytics(surveyId, dimension = 'department') {
  * @param {number} surveyId - 调研ID
  * @returns {Promise<Object>} AI分析总结
  */
-export function getSurveyAISummary(surveyId) {
-  return request.get(`/analysis/survey/${surveyId}/ai-summary`)
+export function getSurveyAISummary(organizationId, surveyId) {
+  return llmRequest.get(`/organizations/${organizationId}/surveys/${surveyId}/analytics/ai-summary`)
 }
 
 /**
