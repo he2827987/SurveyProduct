@@ -16,6 +16,7 @@
             placeholder="请选择调研"
             class="filter-select"
             @change="handleSurveyChange"
+            :teleported="false"
           >
             <el-option 
               v-for="item in surveyList" 
@@ -35,6 +36,7 @@
             placeholder="请选择企业"
             class="filter-select"
             @change="refreshData"
+            :teleported="false"
           >
             <el-option 
               v-for="item in companyList" 
@@ -378,18 +380,28 @@ onMounted(async () => {
 const loadAllData = async () => {
   try {
     loading.value = true
-    
-    // 并行加载数据
-    const [surveys, organizations, questions, categories] = await Promise.all([
-      surveyApi.getSurveys(),
-      organizationApi.getPublicOrganizations(),
-      questionApi.getGlobalQuestions(),
-      questionApi.getQuestionCategoryTree()
-    ])
-    
-    // 设置数据
-    surveyList.value = surveys || []
-    companyList.value = organizations || []
+
+    let allSurveys = []
+    try {
+      const mySurveys = await surveyApi.getSurveys()
+      const items = Array.isArray(mySurveys) ? mySurveys : (mySurveys?.items || [])
+      allSurveys = allSurveys.concat(items)
+    } catch (e) { /* ignore */ }
+    try {
+      const globalSurveys = await surveyApi.getGlobalSurveys()
+      const globalItems = Array.isArray(globalSurveys) ? globalSurveys : (globalSurveys?.items || [])
+      const existingIds = new Set(allSurveys.map(s => s.id))
+      for (const s of globalItems) {
+        if (!existingIds.has(s.id)) allSurveys.push(s)
+      }
+    } catch (e) { /* ignore */ }
+
+    const organizations = await organizationApi.getOrganizations()
+    const questions = await questionApi.getGlobalQuestions()
+    const categories = await questionApi.getQuestionCategoryTree()
+
+    surveyList.value = allSurveys
+    companyList.value = Array.isArray(organizations) ? organizations : (organizations?.items || organizations?.data || [])
     questionList.value = questions || []
     categoryList.value = categories || []
     
