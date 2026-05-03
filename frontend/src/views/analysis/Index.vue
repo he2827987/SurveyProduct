@@ -97,7 +97,24 @@
           </div>
         </div>
         
-        <div v-else class="no-data-tip">
+        <!-- AI 总结面板 -->
+        <div class="card summary-panel" v-if="selectedSurvey && (summaryLoading || summaryData || summaryError)" ref="summaryPanelRef">
+          <div class="summary-panel-header">
+            <h2 class="section-title" style="margin: 0;">AI 智能分析总结</h2>
+            <el-button v-if="summaryData" type="primary" link size="small" @click="generateSummary">
+              重新生成
+            </el-button>
+          </div>
+          <div v-loading="summaryLoading" style="min-height: 200px;">
+            <div v-if="summaryError" class="summary-error">
+              <el-alert :title="summaryError" type="error" show-icon :closable="false" />
+            </div>
+            <div v-else-if="summaryData" class="summary-content" v-html="renderMarkdown(summaryData)" />
+          </div>
+          <div class="summary-disclaimer">AI生成报告，请注意分辨</div>
+        </div>
+        
+        <div v-if="!selectedSurvey" class="no-data-tip">
           <el-empty description="请选择调研查看数据分析" />
         </div>
       </div>
@@ -112,22 +129,6 @@
     <div v-show="activeTab === 'enterprise'" class="tab-content">
       <EnterpriseComparison />
     </div>
-
-    <!-- AI总结对话框 -->
-    <el-dialog
-      v-model="summaryVisible"
-      title="AI 智能分析总结"
-      width="70%"
-      top="5vh"
-      destroy-on-close
-    >
-      <div v-loading="summaryLoading" style="min-height: 300px;">
-        <div v-if="summaryError" class="summary-error">
-          <el-alert :title="summaryError" type="error" show-icon :closable="false" />
-        </div>
-        <div v-else-if="summaryData" class="summary-content" v-html="renderMarkdown(summaryData)" />
-      </div>
-    </el-dialog>
 
     <!-- 导出对话框 -->
     <el-dialog v-model="exportVisible" title="导出数据" width="480px">
@@ -212,6 +213,7 @@ const summaryLoading = ref(false)
 const summaryVisible = ref(false)
 const summaryData = ref('')
 const summaryError = ref('')
+const summaryPanelRef = ref(null)
 
 const loadSurveyList = async () => {
   try {
@@ -576,7 +578,6 @@ const generateSummary = async () => {
   summaryLoading.value = true
   summaryError.value = ''
   summaryData.value = ''
-  summaryVisible.value = true
 
   try {
     const result = await analyticsApi.getSurveyAISummary(survey.organization_id, selectedSurvey.value)
@@ -739,6 +740,26 @@ onMounted(async () => {
 
 .summary-error {
   padding: 20px 0;
+}
+
+.summary-panel {
+  padding: 20px;
+}
+
+.summary-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.summary-disclaimer {
+  text-align: center;
+  color: #c0c4cc;
+  font-size: 12px;
+  padding: 16px 0 4px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 20px;
 }
 
 .export-dialog-content {

@@ -274,22 +274,13 @@ async def get_survey_ai_summary(
         logger.info(f"AI总结生成成功: {summary_data.get('summary', '')[:100]}...")
         return summary_data
         
+    except RuntimeError as e:
+        logger.error(f"生成AI总结失败: {e}")
+        raise HTTPException(status_code=502, detail=f"AI服务暂时不可用: {str(e)}")
     except Exception as e:
         logger.error(f"生成AI总结失败: {e}")
         logger.exception("详细错误信息:")
-        # 返回一个友好的错误响应而不是抛出异常
-        return {
-            "survey_title": survey.title,
-            "total_answers": survey_data.get("total_answers", 0),
-            "generated_at": datetime.now().isoformat(),
-            "summary": f"由于LLM服务暂时不可用，无法生成AI总结。错误信息：{str(e)}\n\n请检查LLM服务配置或稍后重试。",
-            "key_metrics": {
-                "total_questions": len(survey_data.get("question_analytics", [])),
-                "total_participants": survey_data.get("participant_analysis", {}).get("total_participants", 0),
-                "participation_rate": 0
-            },
-            "participation_rate": 0
-        }
+        raise HTTPException(status_code=500, detail=f"生成总结失败: {str(e)}")
 
 @router.get("/organizations/{organization_id}/surveys/{survey_id}/questions/{question_id}/ai-insights")
 async def get_question_ai_insights(

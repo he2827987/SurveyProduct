@@ -6,6 +6,7 @@ LLM 服务模块，用于与大语言模型进行交互。
 import logging
 from typing import List, Optional, Dict, Any
 import httpx
+import asyncio
 from ..config import settings
 import json
 from datetime import datetime
@@ -73,51 +74,71 @@ async def _call_openrouter(prompt: str, model: str = DEFAULT_MODEL, system_messa
     }
 
     async with httpx.AsyncClient() as client:
-        try:
-            # 增加超时时间，Mistral模型可能需要更长时间
-            response = await client.post(OPENROUTER_API_URL, headers=headers, json=data, timeout=300.0) 
-            response.raise_for_status()
+        max_retries = 3
+        for attempt in range(max_retries + 1):
+            try:
+                response = await client.post(OPENROUTER_API_URL, headers=headers, json=data, timeout=300.0)
 
-            logger.debug(f"OpenRouter API 原始响应状态码: {response.status_code}")
-            logger.debug(f"OpenRouter API 原始响应头: {response.headers}")
-            logger.debug(f"OpenRouter API 原始响应内容 (前500字符): {response.text[:500]}")
-            
-            try:
-                res_data = response.json()
-            except json.JSONDecodeError as json_err:
-                logger.error(f"无法解析OpenRouter API 的 JSON 响应。原始响应内容: {response.text[:500]}")
-                raise RuntimeError(f"API 返回了无效的 JSON: {response.text[:500]}...") from json_err
-            
-            # 提取生成的文本
-            if 'choices' in res_data and res_data['choices']:
-                # OpenRouter 返回的是标准的 OpenAI 格式
-                generated_text = res_data['choices'][0]['message']['content']
-                return generated_text
-            else:
-                error_msg = f"OpenRouter API 返回格式异常: {res_data}"
+                if response.status_code == 429:
+                    if attempt < max_retries:
+                        retry_after = 10 * (attempt + 1)
+                        logger.warning(f"OpenRouter 429 rate limited, retrying in {retry_after}s (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(retry_after)
+                        continue
+                    error_msg = f"调用 OpenRouter API 失败 (HTTP 429): 请求频率超限，请稍后重试"
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg)
+
+                response.raise_for_status()
+
+                logger.debug(f"OpenRouter API 原始响应状态码: {response.status_code}")
+
+                try:
+                    res_data = response.json()
+                except json.JSONDecodeError as json_err:
+                    logger.error(f"无法解析OpenRouter API 的 JSON 响应。原始响应内容: {response.text[:500]}")
+                    raise RuntimeError(f"API 返回了无效的 JSON: {response.text[:500]}...") from json_err
+
+                if 'choices' in res_data and res_data['choices']:
+                    generated_text = res_data['choices'][0]['message']['content']
+                    return generated_text
+                else:
+                    error_msg = f"OpenRouter API 返回格式异常: {res_data}"
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg)
+
+            except httpx.HTTPStatusError as e:
+                try:
+                    error_detail = e.response.json().get('error', {}).get('message', '未知错误')
+                except:
+                    error_detail = e.response.text[:500]
+                error_msg = f"调用 OpenRouter API 失败 (HTTP {e.response.status_code}): {error_detail}"
                 logger.error(error_msg)
-                raise RuntimeError(error_msg)
-                
-        except httpx.HTTPStatusError as e:
-            # 尝试解析错误信息
-            try:
-                error_detail = e.response.json().get('error', {}).get('message', '未知错误')
-            except:
-                error_detail = e.response.text[:500]
-            error_msg = f"调用 OpenRouter API 失败 (HTTP {e.response.status_code}): {error_detail}"
-            logger.error(error_msg)
-            # 对于401错误，返回默认响应而不是抛出异常
-            if e.response.status_code == 401:
-                return f"由于API密钥无效，无法调用LLM服务。以下是基于输入的分析：\n\n{prompt}\n\n请检查OPENROUTER_API_KEY环境变量配置是否正确。"
-            raise RuntimeError(error_msg) from e
-        except httpx.RequestError as e:
-            error_msg = f"调用 OpenRouter API 时发生网络错误: {e}"
-            logger.error(error_msg)
-            raise RuntimeError(error_msg) from e
-        except Exception as e:
-            error_msg = f"调用 OpenRouter API 时发生未知错误: {e}"
-            logger.exception(error_msg)
-            raise RuntimeError(error_msg) from e
+                if e.response.status_code == 401:
+                    return f"由于API密钥无效，无法调用LLM服务。以下是基于输入的分析：\n\n{prompt}\n\n请检查OPENROUTER_API_KEY环境变量配置是否正确。"
+                if e.response.status_code == 429 and attempt < max_retries:
+                    retry_after = 10 * (attempt + 1)
+                    logger.warning(f"429 from HTTPStatusError, retrying in {retry_after}s")
+                    await asyncio.sleep(retry_after)
+                    continue
+                raise RuntimeError(error_msg) from e
+            except RuntimeError:
+                raise
+            except httpx.RequestError as e:
+                if attempt < max_retries:
+                    retry_after = 5 * (attempt + 1)
+                    logger.warning(f"网络错误，{retry_after}s 后重试 (attempt {attempt + 1}/{max_retries}): {e}")
+                    await asyncio.sleep(retry_after)
+                    continue
+                error_msg = f"调用 OpenRouter API 时发生网络错误: {e}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg) from e
+            except Exception as e:
+                error_msg = f"调用 OpenRouter API 时发生未知错误: {e}"
+                logger.exception(error_msg)
+                raise RuntimeError(error_msg) from e
+
+        return f"调用LLM服务失败，已重试{max_retries}次。请稍后重试。\n\n原始提示：\n{prompt[:500]}..."
 
 # --- 3. 定义对外服务函数 ---
 
