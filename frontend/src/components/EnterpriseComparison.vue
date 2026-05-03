@@ -23,7 +23,7 @@
         <h4>设置对比参数</h4>
         <el-form :model="comparisonForm" label-width="120px">
           <el-form-item label="对比维度">
-            <el-select v-model="comparisonForm.dimension" placeholder="选择对比维度">
+            <el-select v-model="comparisonForm.dimension" placeholder="选择对比维度" :teleported="false">
               <el-option label="员工满意度" value="satisfaction" />
               <el-option label="工作环境" value="environment" />
               <el-option label="薪资福利" value="salary" />
@@ -33,7 +33,7 @@
           </el-form-item>
           
           <el-form-item label="选择调研">
-            <el-select v-model="comparisonForm.surveyId" placeholder="选择调研数据">
+            <el-select v-model="comparisonForm.surveyId" placeholder="选择调研数据" :teleported="false">
               <el-option
                 v-for="survey in surveys"
                 :key="survey.id"
@@ -49,6 +49,7 @@
               multiple
               placeholder="选择要对比的企业"
               style="width: 100%"
+              :teleported="false"
             >
               <el-option
                 v-for="company in availableCompanies"
