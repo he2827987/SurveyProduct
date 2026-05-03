@@ -193,15 +193,15 @@ const loadSurveys = async () => {
     let allSurveys = []
     try {
       const myResponse = await surveyAPI.getSurveys()
-      if (Array.isArray(myResponse)) allSurveys = allSurveys.concat(myResponse)
+      const items = Array.isArray(myResponse) ? myResponse : (myResponse?.items || myResponse?.data || [])
+      allSurveys = allSurveys.concat(items)
     } catch (e) { /* ignore */ }
     try {
       const globalResponse = await surveyAPI.getGlobalSurveys()
-      if (Array.isArray(globalResponse)) {
-        const existingIds = new Set(allSurveys.map(s => s.id))
-        for (const s of globalResponse) {
-          if (!existingIds.has(s.id)) allSurveys.push(s)
-        }
+      const globalItems = Array.isArray(globalResponse) ? globalResponse : (globalResponse?.items || globalResponse?.data || [])
+      const existingIds = new Set(allSurveys.map(s => s.id))
+      for (const s of globalItems) {
+        if (!existingIds.has(s.id)) allSurveys.push(s)
       }
     } catch (e) { /* ignore */ }
     surveys.value = allSurveys
@@ -216,8 +216,8 @@ const loadAvailableCompanies = async () => {
     const orgs = Array.isArray(response) ? response : (response?.data || response?.items || [])
     availableCompanies.value = orgs.map(org => ({
       id: org.id,
-      name: org.name
-    }))
+      name: org.name || org.organization_name || `组织#${org.id}`
+    })).filter(o => o.name && o.name !== `组织#${o.id}`)
   } catch (error) {
     console.error('加载企业列表失败:', error)
     availableCompanies.value = []

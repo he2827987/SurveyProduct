@@ -221,15 +221,15 @@ const loadSurveyList = async () => {
     let allSurveys = []
     try {
       const myResponse = await surveyApi.getSurveys()
-      if (Array.isArray(myResponse)) allSurveys = allSurveys.concat(myResponse)
+      const items = Array.isArray(myResponse) ? myResponse : (myResponse?.items || myResponse?.data || [])
+      allSurveys = allSurveys.concat(items)
     } catch (e) { /* ignore */ }
     try {
       const globalResponse = await surveyApi.getGlobalSurveys()
-      if (Array.isArray(globalResponse)) {
-        const existingIds = new Set(allSurveys.map(s => s.id))
-        for (const s of globalResponse) {
-          if (!existingIds.has(s.id)) allSurveys.push(s)
-        }
+      const globalItems = Array.isArray(globalResponse) ? globalResponse : (globalResponse?.items || globalResponse?.data || [])
+      const existingIds = new Set(allSurveys.map(s => s.id))
+      for (const s of globalItems) {
+        if (!existingIds.has(s.id)) allSurveys.push(s)
       }
     } catch (e) { /* ignore */ }
 
