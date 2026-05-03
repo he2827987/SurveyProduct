@@ -163,6 +163,7 @@ import { ElMessage } from 'element-plus'
 import { Plus, Refresh, Download, Star } from '@element-plus/icons-vue'
 import * as analyticsAPI from '@/api/analytics'
 import * as surveyAPI from '@/api/survey'
+import { getPublicOrganizations } from '@/api/organization'
 
 // 响应式数据
 const showComparisonForm = ref(false)
@@ -213,17 +214,12 @@ const loadSurveys = async () => {
 
 const loadAvailableCompanies = async () => {
   try {
-    const response = await analyticsAPI.getOrganizations()
+    const response = await getPublicOrganizations()
     const orgs = Array.isArray(response) ? response : (response?.data || response?.items || [])
     availableCompanies.value = orgs.map(org => ({
       id: org.id,
       name: org.name || org.organization_name || `组织#${org.id}`
-    })).filter(o => o.name && o.name !== `组织#${o.id}`)
-  } catch (error) {
-    console.error('加载企业列表失败:', error)
-    availableCompanies.value = []
-  }
-}
+    }))
 
 const startNewComparison = () => {
   showComparisonForm.value = true

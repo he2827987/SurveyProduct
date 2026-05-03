@@ -396,7 +396,7 @@ const loadAllData = async () => {
       }
     } catch (e) { /* ignore */ }
 
-    const organizations = await organizationApi.getOrganizations()
+    const organizations = await organizationApi.getPublicOrganizations()
     const questions = await questionApi.getGlobalQuestions()
     const categories = await questionApi.getQuestionCategoryTree()
 
