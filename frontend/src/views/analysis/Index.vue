@@ -19,7 +19,7 @@
     </div>
     
     <!-- 筛选分析板块 -->
-    <div v-show="activeTab === 'filter'" class="tab-content">
+    <div v-if="activeTab === 'filter'" class="tab-content">
       <!-- 筛选条件 -->
       <div class="card filter-panel">
         <div class="filter-row">
@@ -121,12 +121,12 @@
     </div>
     
     <!-- 标签分析板块 -->
-    <div v-show="activeTab === 'tag'" class="tab-content">
+    <div v-if="activeTab === 'tag'" class="tab-content">
       <TagAnalyticsSimple />
     </div>
     
     <!-- 企业对比板块 -->
-    <div v-show="activeTab === 'enterprise'" class="tab-content">
+    <div v-if="activeTab === 'enterprise'" class="tab-content">
       <EnterpriseComparison />
     </div>
 

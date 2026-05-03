@@ -2,7 +2,14 @@
 <template>
   <div class="org-container page-container">
     <div class="flex-between">
-      <h1 class="page-title">组织架构管理</h1>
+      <div class="org-title-row">
+        <h1 class="page-title" v-if="currentOrg">{{ currentOrg.name || '组织架构管理' }}</h1>
+        <h1 class="page-title" v-else>组织架构管理</h1>
+        <el-button type="primary" link @click="openEditOrgName" :disabled="!currentOrgId">
+          <el-icon><Edit /></el-icon>
+          编辑组织名称
+        </el-button>
+      </div>
       <el-button type="primary" @click="openAddDeptDialog()" :disabled="!currentOrgId">新增部门</el-button>
     </div>
     
@@ -244,11 +251,12 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { FolderOpened, OfficeBuilding, Search, User, Phone, Message } from '@element-plus/icons-vue'
-import { getDepartments, createDepartment, updateDepartment, deleteDepartment as deleteDepartmentApi, getOrganizations } from '@/api/organization'
+import { FolderOpened, OfficeBuilding, Search, User, Phone, Message, Edit } from '@element-plus/icons-vue'
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment as deleteDepartmentApi, getOrganizations, updateOrganization } from '@/api/organization'
 
 // 当前组织ID
 const currentOrgId = ref(null)
+const currentOrg = ref(null)
 
 // 部门树的搜索过滤
 const filterText = ref('')
@@ -270,7 +278,7 @@ const initOrganization = async () => {
     const orgs = res?.items || res || []
     
     if (orgs.length > 0) {
-      // 默认选择第一个组织
+      currentOrg.value = orgs[0]
       currentOrgId.value = orgs[0].id
       await fetchDepartments()
     } else {
@@ -281,6 +289,25 @@ const initOrganization = async () => {
     console.error('获取组织列表失败:', error)
     ElMessage.error('获取组织信息失败')
   }
+}
+
+const openEditOrgName = () => {
+  ElMessageBox.prompt('请输入新的组织名称', '编辑组织名称', {
+    inputValue: currentOrg.value?.name || '',
+    inputPattern: /^.{2,50}$/,
+    inputErrorMessage: '组织名称长度在 2 到 50 个字符',
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+  }).then(async ({ value }) => {
+    try {
+      await updateOrganization(currentOrgId.value, { name: value })
+      currentOrg.value = { ...currentOrg.value, name: value }
+      ElMessage.success('组织名称更新成功')
+    } catch (error) {
+      console.error('更新组织名称失败:', error)
+      ElMessage.error(error.response?.data?.detail || '更新失败，请稍后重试')
+    }
+  }).catch(() => {})
 }
 
 // 获取部门列表
@@ -900,5 +927,14 @@ const getMockUsers = (deptId) => {
     display: block;
     margin-top: 5px;
   }
+}
+.org-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.org-title-row .page-title {
+  margin: 0;
 }
 </style> 
