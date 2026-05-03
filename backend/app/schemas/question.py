@@ -192,7 +192,6 @@ class QuestionResponse(QuestionBase):
     """
     id: int
     owner_id: Optional[int] = None
-    owner_name: Optional[str] = None
     usage_count: Optional[int] = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
