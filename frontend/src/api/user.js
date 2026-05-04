@@ -81,6 +81,18 @@ export function changePassword(passwordData) {
   return request.put('/users/me/password', passwordData)
 }
 
+export function forgotPassword(data) {
+  return request.post('/users/forgot-password', data)
+}
+
+export function verifyResetCode(data) {
+  return request.post('/users/verify-reset-code', data)
+}
+
+export function resetPassword(data) {
+  return request.post('/users/reset-password', data)
+}
+
 // ===== 用户管理API（管理员功能） =====
 
 /**

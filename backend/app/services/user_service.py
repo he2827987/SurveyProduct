@@ -141,3 +141,13 @@ def update_user_password(db: Session, user_id: int, new_password: str) -> User:
     db.refresh(db_user)
     return db_user
 
+
+def update_user_password_by_email(db: Session, email: str, new_password: str) -> User:
+    db_user = db.query(User).filter(User.email == email).first()
+    if not db_user:
+        return None
+    db_user.hashed_password = get_password_hash(new_password)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+

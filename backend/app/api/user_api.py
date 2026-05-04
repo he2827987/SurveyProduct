@@ -4,13 +4,17 @@ from fastapi import APIRouter, Depends, HTTPException, status, Form
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.user import UserCreate, UserLogin, UserResponse, UserUpdate
-from app.schemas.token import Token # 导入 Token schema
+from app.schemas.token import Token
 from app.services import user_service
-from app.security import create_access_token # <-- 注意这里的导入路径
-from datetime import timedelta
+from app.security import create_access_token
+from datetime import timedelta, datetime, timezone
 from app.security import create_access_token, get_current_user
-from app.config import settings # <-- 注意这里的导入路径
+from app.config import settings
 from app.models.user import User as UserModel
+import random
+import string
+
+_reset_codes: dict = {}
 
 router = APIRouter(
     prefix="/users",
@@ -143,4 +147,82 @@ async def change_current_user_password(
     # 更新密码
     updated_user = user_service.update_user_password(db=db, user_id=current_user.id, new_password=new_password)
     return {"message": "Password updated successfully"}
+
+
+def _generate_code(length: int = 6) -> str:
+    return "".join(random.choices(string.digits, k=length))
+
+
+@router.post("/forgot-password")
+async def forgot_password(data: dict, db: Session = Depends(get_db)):
+    email = data.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    db_user = user_service.get_user_by_email(db, email=email)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="该邮箱未注册")
+
+    code = _generate_code()
+    expires = datetime.now(timezone.utc) + timedelta(minutes=settings.RESET_CODE_EXPIRE_MINUTES)
+    _reset_codes[email] = {"code": code, "expires": expires}
+
+    from app.services.email_service import send_verification_code_email
+    ok = await send_verification_code_email(email, code)
+    if not ok:
+        raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
+
+    return {"message": "验证码已发送", "detail": f"验证码已发送至 {email}（SMTP未配置时请查看服务端日志获取验证码）"}
+
+
+@router.post("/verify-reset-code")
+async def verify_reset_code(data: dict):
+    email = data.get("email")
+    code = data.get("code")
+    if not email or not code:
+        raise HTTPException(status_code=400, detail="邮箱和验证码不能为空")
+
+    entry = _reset_codes.get(email)
+    if not entry:
+        raise HTTPException(status_code=400, detail="请先发送验证码")
+
+    if datetime.now(timezone.utc) > entry["expires"]:
+        _reset_codes.pop(email, None)
+        raise HTTPException(status_code=400, detail="验证码已过期，请重新发送")
+
+    if entry["code"] != code:
+        raise HTTPException(status_code=400, detail="验证码错误")
+
+    entry["verified"] = True
+    return {"message": "验证码验证成功"}
+
+
+@router.post("/reset-password")
+async def reset_password(data: dict, db: Session = Depends(get_db)):
+    email = data.get("email")
+    code = data.get("code")
+    new_password = data.get("new_password")
+    if not email or not code or not new_password:
+        raise HTTPException(status_code=400, detail="邮箱、验证码和新密码不能为空")
+
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="密码长度不能少于6位")
+
+    entry = _reset_codes.get(email)
+    if not entry or not entry.get("verified"):
+        raise HTTPException(status_code=400, detail="请先完成验证码验证")
+
+    if entry["code"] != code:
+        raise HTTPException(status_code=400, detail="验证码错误")
+
+    if datetime.now(timezone.utc) > entry["expires"]:
+        _reset_codes.pop(email, None)
+        raise HTTPException(status_code=400, detail="验证码已过期，请重新发送")
+
+    updated = user_service.update_user_password_by_email(db=db, email=email, new_password=new_password)
+    if not updated:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    _reset_codes.pop(email, None)
+    return {"message": "密码重置成功"}
 

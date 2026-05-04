@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     # LLM 配置
     OPENROUTER_API_KEY: str = ""  # 必须从环境变量获取
 
+    # SMTP 邮件配置（暂时可选，未配置时验证码打印到日志）
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+
+    # 验证码配置
+    RESET_CODE_EXPIRE_MINUTES: int = 10
+
     # 使用 Pydantic V2 的 SettingsConfigDict 来配置
     # 这会告诉 Pydantic 去哪里找 .env 文件
     _env_files = [] if os.getenv("ENVIRONMENT") == "production" else ["backend/.env", ".env", "../backend/.env"]
