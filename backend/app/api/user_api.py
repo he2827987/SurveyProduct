@@ -172,7 +172,8 @@ async def forgot_password(data: dict, db: Session = Depends(get_db)):
     if not ok:
         raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
 
-    return {"message": "验证码已发送", "detail": f"验证码已发送至 {email}（SMTP未配置时请查看服务端日志获取验证码）"}
+    smtp_note = "（SMTP未配置，验证码见下方）" if not settings.SMTP_HOST else ""
+    return {"message": "验证码已发送", "detail": f"验证码已发送至 {email}{smtp_note}", "code": code if not settings.SMTP_HOST else None}
 
 
 @router.post("/verify-reset-code")
