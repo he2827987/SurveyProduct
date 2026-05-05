@@ -20,9 +20,10 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     email: Optional[EmailStr] = None
-    password: Optional[str] = Field(None, min_length=6) # 更新密码时使用
+    password: Optional[str] = Field(None, min_length=6)
     role: Optional[str] = None
-    organization_id: Optional[int] = None # 允许更新所属组织
+    organization_id: Optional[int] = None
+    organization_display_name: Optional[str] = None
 
 # 用于用户响应体（返回给前端的用户信息）
 class UserResponse(BaseModel):
@@ -32,8 +33,9 @@ class UserResponse(BaseModel):
     role: str
     created_at: datetime
     updated_at: datetime
-    organization_id: Optional[int] = None # 用户可能暂时没有组织
+    organization_id: Optional[int] = None
     organization_name: Optional[str] = None
+    organization_display_name: Optional[str] = None
 
     class Config:
         from_attributes = True # 兼容 SQLAlchemy ORM 对象

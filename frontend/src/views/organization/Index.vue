@@ -3,7 +3,7 @@
   <div class="org-container page-container">
     <div class="flex-between">
       <div class="org-title-row">
-        <h1 class="page-title" v-if="currentOrg">{{ currentOrg.name || '组织架构管理' }}</h1>
+        <h1 class="page-title" v-if="currentOrgId">{{ currentOrgDisplayName || '组织架构管理' }}</h1>
         <h1 class="page-title" v-else>组织架构管理</h1>
         <el-button type="primary" link @click="openEditOrgName" :disabled="!currentOrgId">
           <el-icon><Edit /></el-icon>
@@ -252,11 +252,13 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { FolderOpened, OfficeBuilding, Search, User, Phone, Message, Edit } from '@element-plus/icons-vue'
-import { getDepartments, createDepartment, updateDepartment, deleteDepartment as deleteDepartmentApi, getOrganizations, updateOrganization } from '@/api/organization'
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment as deleteDepartmentApi, getOrganizations } from '@/api/organization'
+import { updateUser } from '@/api/user'
 
 // 当前组织ID
 const currentOrgId = ref(null)
 const currentOrg = ref(null)
+const currentOrgDisplayName = ref('')
 
 // 部门树的搜索过滤
 const filterText = ref('')
@@ -280,6 +282,8 @@ const initOrganization = async () => {
     if (orgs.length > 0) {
       currentOrg.value = orgs[0]
       currentOrgId.value = orgs[0].id
+      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+      currentOrgDisplayName.value = userInfo.organization_display_name || orgs[0].name
       await fetchDepartments()
     } else {
       ElMessage.warning('暂无组织，请先创建或加入一个组织')
@@ -293,15 +297,18 @@ const initOrganization = async () => {
 
 const openEditOrgName = () => {
   ElMessageBox.prompt('请输入新的组织名称', '编辑组织名称', {
-    inputValue: currentOrg.value?.name || '',
+    inputValue: currentOrgDisplayName.value || '',
     inputPattern: /^.{2,50}$/,
     inputErrorMessage: '组织名称长度在 2 到 50 个字符',
     confirmButtonText: '确认',
     cancelButtonText: '取消',
   }).then(async ({ value }) => {
     try {
-      await updateOrganization(currentOrgId.value, { name: value })
-      currentOrg.value = { ...currentOrg.value, name: value }
+      await updateUser({ organization_display_name: value })
+      currentOrgDisplayName.value = value
+      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
+      userInfo.organization_display_name = value
+      localStorage.setItem('user_info', JSON.stringify(userInfo))
       ElMessage.success('组织名称更新成功')
     } catch (error) {
       console.error('更新组织名称失败:', error)

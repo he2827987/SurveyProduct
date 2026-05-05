@@ -73,6 +73,7 @@ def create_user(db: Session, user: UserCreate) -> User:
         
         # 将用户关联到该组织
         db_user.organization_id = new_org.id
+        db_user.organization_display_name = org_name
         db.add(db_user)
         
         # 将用户添加为组织成员（管理员/所有者）

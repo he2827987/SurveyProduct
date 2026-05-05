@@ -25,6 +25,7 @@ class User(Base):
 
     # --- 修正与 Organization 的关系，明确指定 foreign_keys ---
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    organization_display_name = Column(String(255), nullable=True)
 
     # 其他关系保持不变
     organization_memberships = relationship("OrganizationMember", back_populates="user")
