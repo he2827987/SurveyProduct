@@ -77,11 +77,7 @@ class QuestionBase(BaseModel):
         """
         验证选项字段与问题类型的匹配性
         """
-        if isinstance(values, dict):
-            pass
-        elif hasattr(values, "__dict__"):
-            values = {k: v for k, v in vars(values).items() if not k.startswith("_")}
-        else:
+        if not isinstance(values, dict):
             return values
         
         options = values.get("options")
@@ -122,8 +118,8 @@ class QuestionBase(BaseModel):
         验证关联题配置：父题目ID和触发选项必须同时存在或同时为空
         在mode="after"时，self已经是完整的模型实例
         """
-        parent_id = self.parent_question_id
-        trigger_opts = self.trigger_options
+        parent_id = getattr(self, 'parent_question_id', None)
+        trigger_opts = getattr(self, 'trigger_options', None)
 
         # 只有当真正设置了父题目ID（不为None）时才验证触发选项
         if parent_id is not None:
