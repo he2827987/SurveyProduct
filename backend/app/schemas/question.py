@@ -220,6 +220,11 @@ class QuestionResponse(QuestionBase):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+    @model_validator(mode="after")
+    @classmethod
+    def skip_conditional_validation(cls, values):
+        return values
+
     class Config:
         """
         Pydantic配置类
