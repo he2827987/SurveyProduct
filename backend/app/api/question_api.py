@@ -126,7 +126,7 @@ def read_question(question_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="问题未找到")
     return db_question
 
-@router.put("/questions/{question_id}", response_model=QuestionResponse)
+@router.put("/questions/{question_id}")
 def update_existing_question(
     question_id: int,
     question_update: QuestionUpdate,
