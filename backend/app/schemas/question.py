@@ -77,7 +77,13 @@ class QuestionBase(BaseModel):
         """
         验证选项字段与问题类型的匹配性
         """
-        values = _prepare_values(values)
+        if isinstance(values, dict):
+            pass
+        elif hasattr(values, "__dict__"):
+            values = {k: v for k, v in vars(values).items() if not k.startswith("_")}
+        else:
+            return values
+        
         options = values.get("options")
         # 如果是字符串（从数据库读取时），尝试解析为JSON
         if isinstance(options, str):
@@ -177,7 +183,7 @@ class QuestionUpdate(QuestionBase):
         Raises:
             ValueError: 当选项与问题类型不匹配时
         """
-        values = _prepare_values(values)
+        values = _prepare_values(values) if isinstance(values, (dict,)) else ({k: v for k, v in vars(values).items() if not k.startswith("_")} if hasattr(values, "__dict__") else values)
         options = values.get("options")
         if isinstance(options, str):
             try:
