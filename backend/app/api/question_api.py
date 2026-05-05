@@ -155,9 +155,12 @@ def update_existing_question(
     if db_question is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="问题未找到")
 
-    # 权限检查：只有创建者可以修改题目
-    if db_question.owner_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权修改此问题")
+    # 权限检查：只有创建者可以修改题目；如果owner_id对应用户不存在则允许任何认证用户接管
+    if db_question.owner_id and db_question.owner_id != current_user.id:
+        from app.models.user import User
+        owner_exists = db.query(User).filter(User.id == db_question.owner_id).first() is not None
+        if owner_exists:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权修改此问题")
 
     updated_question = crud.update_question(db=db, question_id=question_id, question_update=question_update)
     return updated_question
@@ -192,9 +195,12 @@ def delete_existing_question(
     if db_question is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="问题未找到")
 
-    # 权限检查：只有创建者可以删除题目
-    if db_question.owner_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权删除此题目")
+    # 权限检查：只有创建者可以删除题目；如果owner_id对应用户不存在则允许任何认证用户
+    if db_question.owner_id and db_question.owner_id != current_user.id:
+        from app.models.user import User
+        owner_exists = db.query(User).filter(User.id == db_question.owner_id).first() is not None
+        if owner_exists:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权删除此题目")
 
     crud.delete_question(db=db, question_id=question_id)
     # 204状态码通常不返回内容
