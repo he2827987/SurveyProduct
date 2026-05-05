@@ -386,35 +386,41 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
     """
     db_question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if db_question:
-        # 先保存原始 options 值
-        original_options = db_question.options
+        # 保存 question_id，从 session 中 expunge 以避免 flush 时被意外更新
+        qid = question_id
         
         update_data = question_update.dict(exclude_unset=True)
         
-        # 处理 tags
+        # 处理 tags - 完全通过 raw SQL，不触碰 ORM 关系
         if "tags" in update_data:
             tags_data = update_data["tags"]
             if tags_data is not None:
-                # 先通过 raw SQL 删除旧关联
-                from app.models.tag import question_tags
-                db.execute(
-                    question_tags.delete().where(question_tags.c.question_id == question_id)
-                )
+                from app.models.tag import question_tags, Tag
                 
-                from app.models.tag import Tag
+                tag_ids = []
                 for tag_name in tags_data:
                     tag = db.query(Tag).filter(Tag.name == tag_name).first()
                     if not tag:
                         tag = Tag(name=tag_name)
                         db.add(tag)
                         db.flush()
-                    
+                    tag_ids.append(tag.id)
+                
+                # 删除旧关联
+                db.execute(
+                    question_tags.delete().where(question_tags.c.question_id == qid)
+                )
+                # 添加新关联
+                for tid in tag_ids:
                     db.execute(
-                        question_tags.insert().values(question_id=question_id, tag_id=tag.id)
+                        question_tags.insert().values(question_id=qid, tag_id=tid)
                     )
                 db.flush()
             
             del update_data["tags"]
+
+        # 重新查询 question 对象
+        db_question = db.query(models.Question).filter(models.Question.id == qid).first()
 
         # 特殊处理options字段
         if "options" in update_data:
@@ -437,10 +443,6 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
 
         for key, value in update_data.items():
             setattr(db_question, key, value)
-
-        # 确保 options 是字符串格式
-        if db_question.options is not None and not isinstance(db_question.options, str):
-            db_question.options = cast(str, json.dumps(db_question.options, ensure_ascii=False))
 
         db.add(db_question)
         db.commit()
