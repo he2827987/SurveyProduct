@@ -164,6 +164,7 @@ import { Plus, Refresh, Download, Star } from '@element-plus/icons-vue'
 import * as analyticsAPI from '@/api/analytics'
 import * as surveyAPI from '@/api/survey'
 import { getPublicOrganizations } from '@/api/organization'
+import { getCurrentUser } from '@/api/user'
 
 // 响应式数据
 const showComparisonForm = ref(false)
@@ -220,6 +221,11 @@ const loadAvailableCompanies = async () => {
       id: org.id,
       name: org.name || org.organization_name || `组织#${org.id}`
     }))
+    const user = await getCurrentUser()
+    if (user?.organization_display_name && user?.organization_id) {
+      const org = availableCompanies.value.find(o => o.id === user.organization_id)
+      if (org) org.name = user.organization_display_name
+    }
   } catch (error) {
     console.error('加载企业列表失败:', error)
     availableCompanies.value = []

@@ -372,8 +372,8 @@ const chartDescription = computed(() => {
 
 // 初始化
 onMounted(async () => {
-  await loadCurrentOrganization()
   await loadAllData()
+  await loadCurrentOrganization()
 })
 
 // 加载所有数据
@@ -432,6 +432,12 @@ const loadCurrentOrganization = async () => {
     const user = await getCurrentUser()
     if (user?.organization_id) {
       fallbackOrganizationId.value = user.organization_id
+    }
+    if (user?.organization_display_name && user?.organization_id) {
+      const org = companyList.value.find(o => o.id === user.organization_id)
+      if (org) {
+        org.name = user.organization_display_name
+      }
     }
   } catch (error) {
     console.warn('获取当前组织ID失败:', error)

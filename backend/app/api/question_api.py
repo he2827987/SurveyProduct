@@ -314,10 +314,16 @@ def read_global_questions(
 
     # 兼容前端旧枚举/别名
     type_alias_map = {
-        "single": "single_choice",
-        "multiple": "multi_choice",
-        "text": "text_input",
-        "number": "number_input",
+        "single": "SINGLE_CHOICE",
+        "multiple": "MULTI_CHOICE",
+        "text": "TEXT_INPUT",
+        "number": "NUMBER_INPUT",
+        "sort": "SORT_ORDER",
+        "single_choice": "SINGLE_CHOICE",
+        "multi_choice": "MULTI_CHOICE",
+        "text_input": "TEXT_INPUT",
+        "number_input": "NUMBER_INPUT",
+        "sort_order": "SORT_ORDER",
     }
     if type in type_alias_map:
         type = type_alias_map[type]
