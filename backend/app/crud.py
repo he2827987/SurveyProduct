@@ -387,9 +387,6 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
     db_question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if db_question:
         update_data = question_update.dict(exclude_unset=True)
-        print(f"[DEBUG update_question] update_data keys: {list(update_data.keys())}")
-        print(f"[DEBUG update_question] options type: {type(update_data.get('options'))}, value: {str(update_data.get('options'))[:200]}")
-        print(f"[DEBUG update_question] tags: {update_data.get('tags')}")
         
         # 处理 tags
         if "tags" in update_data:
@@ -400,16 +397,16 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
                 
                 from app.models.tag import Tag
                 for tag_name in tags_data:
-                    # 查找或创建标签
                     tag = db.query(Tag).filter(Tag.name == tag_name).first()
                     if not tag:
                         tag = Tag(name=tag_name)
                         db.add(tag)
-                        db.commit()
+                        db.flush()
                         db.refresh(tag)
                     
-                    # 添加关联
                     db_question.tags.append(tag)
+                
+                db.flush()
             
             del update_data["tags"]
 
@@ -417,25 +414,26 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
         if "options" in update_data:
             if update_data["options"] is not None:
                 options_data = update_data["options"]
-                # 如果是 Pydantic 对象列表，先转为 dict
                 if isinstance(options_data, list):
                     options_data = [
                         opt.dict() if hasattr(opt, 'dict') else opt 
                         for opt in options_data
                     ]
                 db_question.options = cast(str, json.dumps(options_data, ensure_ascii=False))
+                del update_data["options"]
             else:
-                db_question.options = None # 如果更新为None，则清空
-            del update_data["options"] # 从update_data中移除，避免重复处理
+                # options is None from unset field, don't modify DB
+                del update_data["options"]
 
         # 特殊处理trigger_options字段（关联题的触发条件）
         if "trigger_options" in update_data:
             if update_data["trigger_options"] is not None:
                 trigger_data = update_data["trigger_options"]
                 db_question.trigger_options = cast(str, json.dumps(trigger_data, ensure_ascii=False))
+                del update_data["trigger_options"]
             else:
-                db_question.trigger_options = None
-            del update_data["trigger_options"]
+                # trigger_options is None from unset field, don't modify DB
+                del update_data["trigger_options"]
 
         for key, value in update_data.items():
             setattr(db_question, key, value)
