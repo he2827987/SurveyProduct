@@ -442,6 +442,15 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
         for key, value in update_data.items():
             setattr(db_question, key, value)
 
+        # 修复：get_question() 可能已经将 options 从 JSON 字符串转换为 Python 列表
+        # 在 commit 前确保 options 是 JSON 字符串格式
+        if hasattr(db_question, 'options') and db_question.options is not None:
+            if not isinstance(db_question.options, str):
+                db_question.options = cast(str, json.dumps(db_question.options, ensure_ascii=False))
+        if hasattr(db_question, 'trigger_options') and db_question.trigger_options is not None:
+            if not isinstance(db_question.trigger_options, str):
+                db_question.trigger_options = cast(str, json.dumps(db_question.trigger_options, ensure_ascii=False))
+
         db.add(db_question)
         db.commit()
         db.refresh(db_question)
