@@ -419,7 +419,8 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
             
             del update_data["tags"]
 
-        # 重新查询 question 对象
+        # 重新查询 question 对象（expunge 先清除 identity map 缓存）
+        db.expunge_all()
         db_question = db.query(models.Question).filter(models.Question.id == qid).first()
 
         # 特殊处理options字段
