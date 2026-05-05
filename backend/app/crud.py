@@ -386,42 +386,39 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
     """
     db_question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if db_question:
-        # 保存 question_id，从 session 中 expunge 以避免 flush 时被意外更新
-        qid = question_id
-        
         update_data = question_update.dict(exclude_unset=True)
         
-        # 处理 tags - 完全通过 raw SQL，不触碰 ORM 关系
+        # 处理 tags - 使用独立 session 避免 flush 影响主 question 对象
         if "tags" in update_data:
             tags_data = update_data["tags"]
             if tags_data is not None:
+                from app.database import SessionLocal
                 from app.models.tag import question_tags, Tag
                 
-                tag_ids = []
-                for tag_name in tags_data:
-                    tag = db.query(Tag).filter(Tag.name == tag_name).first()
-                    if not tag:
-                        tag = Tag(name=tag_name)
-                        db.add(tag)
-                        db.flush()
-                    tag_ids.append(tag.id)
-                
-                # 删除旧关联
-                db.execute(
-                    question_tags.delete().where(question_tags.c.question_id == qid)
-                )
-                # 添加新关联
-                for tid in tag_ids:
-                    db.execute(
-                        question_tags.insert().values(question_id=qid, tag_id=tid)
+                tag_session = SessionLocal()
+                try:
+                    tag_ids = []
+                    for tag_name in tags_data:
+                        tag = tag_session.query(Tag).filter(Tag.name == tag_name).first()
+                        if not tag:
+                            tag = Tag(name=tag_name)
+                            tag_session.add(tag)
+                            tag_session.commit()
+                            tag_session.refresh(tag)
+                        tag_ids.append(tag.id)
+                    
+                    tag_session.execute(
+                        question_tags.delete().where(question_tags.c.question_id == question_id)
                     )
-                db.flush()
+                    for tid in tag_ids:
+                        tag_session.execute(
+                            question_tags.insert().values(question_id=question_id, tag_id=tid)
+                        )
+                    tag_session.commit()
+                finally:
+                    tag_session.close()
             
             del update_data["tags"]
-
-        # 重新查询 question 对象（expunge 先清除 identity map 缓存）
-        db.expunge_all()
-        db_question = db.query(models.Question).filter(models.Question.id == qid).first()
 
         # 特殊处理options字段
         if "options" in update_data:
