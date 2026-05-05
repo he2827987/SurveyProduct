@@ -386,7 +386,7 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
     """
     db_question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if db_question:
-        # 先保存原始 options 值，防止被意外修改
+        # 先保存原始 options 值
         original_options = db_question.options
         
         update_data = question_update.dict(exclude_unset=True)
@@ -398,15 +398,22 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
                 db_question.tags = []
                 
                 from app.models.tag import Tag
+                tag_ids = []
                 for tag_name in tags_data:
                     tag = db.query(Tag).filter(Tag.name == tag_name).first()
                     if not tag:
                         tag = Tag(name=tag_name)
                         db.add(tag)
                         db.flush()
-                        db.refresh(tag)
-                    
-                    db_question.tags.append(tag)
+                    tag_ids.append(tag.id)
+                
+                # 通过 tag_id 直接添加关联，避免触发 relationship reload
+                from app.models.tag import question_tags
+                for tid in tag_ids:
+                    db.execute(
+                        question_tags.insert().values(question_id=question_id, tag_id=tid)
+                    )
+                db.flush()
             
             del update_data["tags"]
 
@@ -422,7 +429,7 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
                 db_question.options = cast(str, json.dumps(options_data, ensure_ascii=False))
             del update_data["options"]
 
-        # 特殊处理trigger_options字段（关联题的触发条件）
+        # 特殊处理trigger_options字段
         if "trigger_options" in update_data:
             if update_data["trigger_options"] is not None:
                 trigger_data = update_data["trigger_options"]
@@ -432,9 +439,9 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
         for key, value in update_data.items():
             setattr(db_question, key, value)
 
-        # 确保 options 是字符串
-        if not isinstance(db_question.options, str):
-            db_question.options = cast(str, json.dumps(db_question.options, ensure_ascii=False)) if db_question.options else None
+        # 确保 options 是字符串格式
+        if db_question.options is not None and not isinstance(db_question.options, str):
+            db_question.options = cast(str, json.dumps(db_question.options, ensure_ascii=False))
 
         db.add(db_question)
         db.commit()
