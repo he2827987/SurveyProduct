@@ -6,7 +6,7 @@
 """
 
 # ===== 导入依赖 =====
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 from typing import List, Optional, Any, Union, Dict
 from datetime import datetime
 from app.models.question import QuestionType
@@ -47,8 +47,19 @@ class QuestionBase(BaseModel):
     min_score: Optional[int] = Field(0, description="选项分值最小值")
     max_score: Optional[int] = Field(10, description="选项分值最大值")
     tags: Optional[List[str]] = Field(None, description="题目标签列表")
-    parent_question_id: Optional[int] = Field(None, description="关联题的父题目ID")
-    trigger_options: Optional[List[Dict[str, Any]]] = Field(None, description="触发条件列表，格式：[{\"option_text\": \"选项A\"}]")
+    
+    @field_validator('tags', mode='before')
+    @classmethod
+    def normalize_tags(cls, v):
+        if v is None:
+            return None
+        result = []
+        for item in v:
+            if hasattr(item, 'name'):
+                result.append(item.name)
+            else:
+                result.append(str(item))
+        return result
 
     @model_validator(mode="before")
     def validate_options_for_type(cls, values):
@@ -195,28 +206,6 @@ class QuestionResponse(QuestionBase):
     usage_count: Optional[int] = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-
-    @model_validator(mode="after")
-    def normalize_tags(cls, values):
-        """
-        Normalize tags to plain strings after validation.
-        """
-        if isinstance(values, dict):
-            tags = values.get("tags")
-        else:
-            tags = getattr(values, "tags", None)
-
-        normalized = []
-        if tags:
-            for item in tags:
-                normalized.append(item.name if hasattr(item, "name") else item)
-
-        if isinstance(values, dict):
-            values["tags"] = normalized
-            return values
-
-        setattr(values, "tags", normalized)
-        return values
 
     class Config:
         """
