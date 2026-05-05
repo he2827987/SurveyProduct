@@ -175,7 +175,7 @@ export function getDepartments(organizationId, params = {}) {
  * @returns {Promise<Object>} 更新后的部门对象
  */
 export function updateDepartment(organizationId, departmentId, departmentData) {
-  return request.put(`/organizations/${organizationId}/departments/${departmentId}`, departmentData)
+  return request.put(`/departments/${departmentId}`, departmentData)
 }
 
 /**
@@ -185,5 +185,5 @@ export function updateDepartment(organizationId, departmentId, departmentData) {
  * @returns {Promise<Object>} 删除结果
  */
 export function deleteDepartment(organizationId, departmentId) {
-  return request.delete(`/organizations/${organizationId}/departments/${departmentId}`)
+  return request.delete(`/departments/${departmentId}`)
 }

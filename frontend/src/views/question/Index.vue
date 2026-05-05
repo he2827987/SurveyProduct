@@ -132,14 +132,14 @@
           </el-input>
           
           <div class="filters">
-            <el-select v-model="questionType" placeholder="题目类型" clearable class="filter-select">
+            <el-select v-model="questionType" placeholder="题目类型" clearable class="filter-select" :teleported="false">
               <el-option label="全部类型" value="" />
               <el-option label="单选题" value="single" />
               <el-option label="多选题" value="multiple" />
               <el-option label="填空题" value="text" />
             </el-select>
             
-            <el-select v-model="sortBy" placeholder="排序方式" class="filter-select">
+            <el-select v-model="sortBy" placeholder="排序方式" class="filter-select" :teleported="false">
               <el-option label="创建时间降序" value="created_desc" />
               <el-option label="创建时间升序" value="created_asc" />
               <el-option label="使用次数降序" value="usage_desc" />
@@ -158,7 +158,7 @@
               <span class="selected-count">已选择 {{ selectedQuestions.length }} 项</span>
               
               <div class="action-buttons">
-                <el-select v-model="batchCategory" placeholder="批量分类" size="small" class="batch-select">
+                <el-select v-model="batchCategory" placeholder="批量分类" size="small" class="batch-select" :teleported="false">
                   <el-option
                     v-for="cat in flattenedCategories"
                     :key="cat.id"
@@ -297,7 +297,7 @@
         </el-form-item>
         
         <el-form-item label="题目类型" prop="type">
-          <el-select v-model="questionForm.type" placeholder="请选择题目类型" style="width: 100%">
+          <el-select v-model="questionForm.type" placeholder="请选择题目类型" style="width: 100%" :teleported="false">
             <el-option label="单选题" value="single" />
             <el-option label="多选题" value="multiple" />
             <el-option label="排序题" value="sort" />
@@ -319,6 +319,7 @@
             placeholder="请选择分类"
             clearable
             style="width: 100%"
+            :teleported="false"
           />
         </el-form-item>
 
@@ -476,6 +477,7 @@
             filterable
             style="width: 100%"
             @change="handleParentQuestionChange"
+            :teleported="false"
           >
             <el-option
               v-for="q in availableParentQuestions"
@@ -507,6 +509,7 @@
             multiple
             filterable
             style="width: 100%"
+            :teleported="false"
           >
             <el-option
               v-for="opt in parentQuestionOptions"
@@ -574,6 +577,7 @@
             placeholder="请选择上级分类"
             clearable
             style="width: 100%"
+            :teleported="false"
           />
         </el-form-item>
         
@@ -610,6 +614,7 @@
             default-first-option
             placeholder="请选择或创建标签"
             style="width: 100%"
+            :teleported="false"
           >
             <el-option
               v-for="tag in allTags"
@@ -1709,12 +1714,20 @@ const openTagDialog = (question) => {
 }
 
 // 保存标签
-const saveTags = () => {
+const saveTags = async () => {
   if (tagDialog.value.currentQuestion) {
     tagDialog.value.currentQuestion.tags = [...tagDialog.value.tags]
-    ElMessage.success('标签更新成功')
+    try {
+      const payload = { ...tagDialog.value.currentQuestion }
+      payload.type = mapQuestionTypeForApi(payload.type)
+      await updateQuestion(payload.id, payload)
+      ElMessage.success('标签更新成功')
+      await fetchQuestions()
+    } catch (error) {
+      console.error('更新标签失败:', error)
+      ElMessage.error('更新标签失败')
+    }
   }
-  
   tagDialog.value.visible = false
 }
 
