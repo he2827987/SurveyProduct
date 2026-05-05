@@ -387,6 +387,9 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
     db_question = db.query(models.Question).filter(models.Question.id == question_id).first()
     if db_question:
         update_data = question_update.dict(exclude_unset=True)
+        print(f"[DEBUG update_question] update_data keys: {list(update_data.keys())}")
+        print(f"[DEBUG update_question] options type: {type(update_data.get('options'))}, value: {str(update_data.get('options'))[:200]}")
+        print(f"[DEBUG update_question] tags: {update_data.get('tags')}")
         
         # 处理 tags
         if "tags" in update_data:
