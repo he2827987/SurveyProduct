@@ -438,6 +438,12 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
         for key, value in update_data.items():
             setattr(db_question, key, value)
 
+        # 确保 options 和 trigger_options 是字符串格式（防止 SQLAlchemy 意外包含非字符串值）
+        if db_question.options is not None and not isinstance(db_question.options, str):
+            db_question.options = cast(str, json.dumps(db_question.options, ensure_ascii=False))
+        if db_question.trigger_options is not None and not isinstance(db_question.trigger_options, str):
+            db_question.trigger_options = cast(str, json.dumps(db_question.trigger_options, ensure_ascii=False))
+
         db.add(db_question)
         db.commit()
         db.refresh(db_question)
