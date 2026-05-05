@@ -256,9 +256,8 @@ def get_question(db: Session, question_id: int) -> Optional[models.Question]:
     Returns:
         Optional[models.Question]: 问题对象，如果不存在则返回None
     """
-    # 从数据库查询问题对象（eager load tags）
-    from sqlalchemy.orm import joinedload
-    db_question = db.query(models.Question).options(joinedload(models.Question.tags)).filter(models.Question.id == question_id).first()
+    # 从数据库查询问题对象
+    db_question = db.query(models.Question).filter(models.Question.id == question_id).first()
     
     # 处理options字段：将JSON字符串转换为Python列表
     if db_question and db_question.options and isinstance(db_question.options, str):
@@ -562,8 +561,7 @@ def get_global_questions(db: Session, skip: int = 0, limit: int = 100, type_filt
         dict: 包含问题列表和分页信息的字典
     """
     # 构建基础查询 - 现在所有题目都是全局题目
-    from sqlalchemy.orm import joinedload
-    base_query = db.query(models.Question).options(joinedload(models.Question.tags))
+    base_query = db.query(models.Question)
     
     if type_filter:
         base_query = base_query.filter(models.Question.type == type_filter)
@@ -596,7 +594,7 @@ def get_global_questions(db: Session, skip: int = 0, limit: int = 100, type_filt
     total = base_query.count()
     
     # 使用join查询来获取用户信息
-    query = db.query(models.Question, models.User.username.label('owner_name')).options(joinedload(models.Question.tags))
+    query = db.query(models.Question, models.User.username.label('owner_name'))
     # 现在所有题目都是全局题目
     query = query.outerjoin(models.User, models.Question.owner_id == models.User.id)
     

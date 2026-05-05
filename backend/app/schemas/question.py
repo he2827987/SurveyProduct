@@ -17,7 +17,18 @@ def _prepare_values(values):
     if isinstance(values, dict):
         return values
     if hasattr(values, "__dict__"):
-        result = {k: v for k, v in vars(values).items() if not k.startswith("_sa")}
+        result = {}
+        for k, v in vars(values).items():
+            if not k.startswith("_sa") and not k.startswith("_"):
+                result[k] = v
+        if hasattr(values, 'parent_question_id'):
+            result['parent_question_id'] = values.parent_question_id
+        if hasattr(values, 'trigger_options'):
+            result['trigger_options'] = values.trigger_options
+        if hasattr(values, 'tags'):
+            result['tags'] = values.tags
+        if hasattr(values, 'category_id'):
+            result['category_id'] = values.category_id
         return result
     return values
 
