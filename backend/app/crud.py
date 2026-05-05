@@ -395,23 +395,22 @@ def update_question(db: Session, question_id: int, question_update: QuestionUpda
         if "tags" in update_data:
             tags_data = update_data["tags"]
             if tags_data is not None:
-                db_question.tags = []
+                # 先通过 raw SQL 删除旧关联
+                from app.models.tag import question_tags
+                db.execute(
+                    question_tags.delete().where(question_tags.c.question_id == question_id)
+                )
                 
                 from app.models.tag import Tag
-                tag_ids = []
                 for tag_name in tags_data:
                     tag = db.query(Tag).filter(Tag.name == tag_name).first()
                     if not tag:
                         tag = Tag(name=tag_name)
                         db.add(tag)
                         db.flush()
-                    tag_ids.append(tag.id)
-                
-                # 通过 tag_id 直接添加关联，避免触发 relationship reload
-                from app.models.tag import question_tags
-                for tid in tag_ids:
+                    
                     db.execute(
-                        question_tags.insert().values(question_id=question_id, tag_id=tid)
+                        question_tags.insert().values(question_id=question_id, tag_id=tag.id)
                     )
                 db.flush()
             
