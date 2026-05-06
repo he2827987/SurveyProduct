@@ -23,13 +23,7 @@ async def send_forgot_password_email(to_email: str, username: str, reset_link: s
           </div>
           <div style="background:#fff;padding:32px 24px;border:1px solid #e8e8e8;border-top:none;border-radius:0 0 12px 12px;">
             <p style="font-size:16px;line-height:1.6;">您好，{username}</p>
-            <p style="font-size:16px;line-height:1.6;">我们收到了您的密码重置请求。如果您想保留当前密码，可以直接使用以下登录信息登录：</p>
-            <div style="background:#f7f7f7;border-radius:8px;padding:20px;margin:20px 0;">
-              <p style="margin:0 0 8px;font-size:14px;color:#888;">登录邮箱</p>
-              <p style="margin:0;font-size:16px;font-weight:600;">{to_email}</p>
-            </div>
-            <p style="font-size:16px;line-height:1.6;color:#555;text-align:center;">- - -</p>
-            <p style="font-size:16px;line-height:1.6;">如果您想设置新密码，请点击下方按钮：</p>
+            <p style="font-size:16px;line-height:1.6;">我们收到了您的密码重置请求。请点击下方按钮设置新密码：</p>
             <div style="text-align:center;margin:24px 0;">
               <a href="{reset_link}" style="display:inline-block;background:#667eea;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:16px;font-weight:500;">
                 重置密码
