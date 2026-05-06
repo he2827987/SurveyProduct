@@ -42,7 +42,10 @@
           :default-expanded-keys="expandedKeys"
           :filter-node-method="filterNode"
           class="org-tree"
+          draggable
+          :allow-drop="allowDrop"
           @node-click="handleNodeClick"
+          @node-drop="handleNodeDrop"
         >
           <template #default="{ node, data }">
             <div class="tree-node">
@@ -132,11 +135,12 @@
           <el-tree-select
             v-model="deptForm.parentId"
             :data="departmentOptions"
-            :props="defaultProps"
+            :props="{ children: 'children', label: 'name', value: 'id' }"
             placeholder="请选择上级部门"
             check-strictly
             :render-after-expand="false"
             clearable
+            node-key="id"
           />
         </el-form-item>
         <el-form-item label="备注">
@@ -369,22 +373,14 @@ const defaultProps = {
 
 // 部门选项（用于上级部门选择）
 const departmentOptions = computed(() => {
-  const options = []
-  
-  const addOption = (dept, level = 0) => {
-    options.push({
+  const buildOptions = (depts) => {
+    return depts.map(dept => ({
       id: dept.id,
-      name: '　'.repeat(level) + dept.name,
-      children: dept.children || []
-    })
-    
-    if (dept.children && dept.children.length > 0) {
-      dept.children.forEach(child => addOption(child, level + 1))
-    }
+      name: dept.name,
+      children: dept.children && dept.children.length > 0 ? buildOptions(dept.children) : []
+    }))
   }
-  
-  departments.value.forEach(dept => addOption(dept))
-  return options
+  return buildOptions(departments.value)
 })
 
 // 部门对话框
@@ -516,16 +512,53 @@ const openAddDeptDialog = (parentDept = null) => {
   }
 }
 
-// 编辑部门
+const getAllDescendantIds = (node) => {
+  let ids = [node.id]
+  if (node.children && node.children.length > 0) {
+    node.children.forEach(child => {
+      ids = ids.concat(getAllDescendantIds(child))
+    })
+  }
+  return ids
+}
+
+const allowDrop = (draggingNode, dropNode, type) => {
+  if (type === 'inner') {
+    const descendantIds = getAllDescendantIds(draggingNode.data)
+    return !descendantIds.includes(dropNode.data.id)
+  }
+  return true
+}
+
+const handleNodeDrop = async (draggingNode, dropNode, dropType) => {
+  let newParentId = null
+  if (dropType === 'inner') {
+    newParentId = dropNode.data.id
+  } else {
+    newParentId = dropNode.data.parent_id || null
+  }
+
+  try {
+    await updateDepartment(currentOrgId.value, draggingNode.data.id, {
+      parent_id: newParentId
+    })
+    ElMessage.success('部门移动成功')
+    fetchDepartments()
+  } catch (error) {
+    console.error('移动部门失败:', error)
+    ElMessage.error(error.response?.data?.detail || '移动部门失败')
+    fetchDepartments()
+  }
+}
+
 const editDepartment = (dept) => {
   deptDialog.value.isEdit = true
   deptDialog.value.visible = true
   deptForm.value = {
     id: dept.id,
     name: dept.name,
-    // 编辑时也不允许修改code，后端忽略，或者前端不显示
-    parentId: dept.parentId,
-    remark: dept.remark || ''
+    parentId: dept.parent_id || null,
+    remark: dept.remark || dept.description || ''
   }
 }
 
@@ -543,9 +576,8 @@ const saveDepartment = async () => {
       
       const payload = {
         name: deptForm.value.name,
-        // code: 由后端生成
-        parent_id: deptForm.value.parentId,
-        description: deptForm.value.remark // 后端字段名为 description
+        parent_id: deptForm.value.parentId || null,
+        description: deptForm.value.remark
       }
       
       if (deptDialog.value.isEdit) {
