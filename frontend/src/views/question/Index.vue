@@ -103,15 +103,26 @@
             >
               添加标签
             </el-button>
-            <el-button
+            <el-dropdown
               v-if="filterTags.some(t => t.active)"
-              type="danger"
-              size="small"
-              @click="deleteActiveTag"
+              trigger="click"
               style="margin-left: 8px;"
+              @command="handleTagCommand"
             >
-              删除选中标签
-            </el-button>
+              <el-button size="small">
+                更多功能<el-icon class="el-icon--right"><arrow-down /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="clearActive">
+                    清空选中标签
+                  </el-dropdown-item>
+                  <el-dropdown-item command="deleteSelected" divided>
+                    删除标签（{{ activeTagCount }}）
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </div>
       </div>
@@ -1107,35 +1118,43 @@ const toggleTagFilter = (tag) => {
   fetchQuestions()
 }
 
-// 删除选中标签（仅删除一个当前激活的标签）
-const deleteActiveTag = async () => {
+const activeTagCount = computed(() => filterTags.value.filter(t => t.active).length)
+
+const handleTagCommand = (command) => {
+  if (command === 'clearActive') clearActiveTags()
+  else if (command === 'deleteSelected') deleteSelectedTags()
+}
+
+const clearActiveTags = () => {
+  filterTags.value.forEach(t => { t.active = false })
+  currentPage.value = 1
+  fetchQuestions()
+}
+
+const deleteSelectedTags = async () => {
   const activeTags = filterTags.value.filter(t => t.active)
   if (activeTags.length === 0) {
     ElMessage.warning('请先选中要删除的标签')
     return
   }
-  if (activeTags.length > 1) {
-    ElMessage.warning('不能同时删除多个标签')
+  const tagsWithoutId = activeTags.filter(t => !t.id)
+  if (tagsWithoutId.length > 0) {
+    ElMessage.warning(`标签「${tagsWithoutId.map(t => t.name).join('、')}」无法删除（缺少ID）`)
     return
   }
-  const activeTag = activeTags[0]
-  if (!activeTag.id) {
-    ElMessage.error('无法删除：缺少标签ID（可能是本地默认标签）')
-    return
-  }
+  const tagNames = activeTags.map(t => t.name)
   try {
     await ElMessageBox.confirm(
-      `确定删除标签「${activeTag.name}」？此操作将从所有题目中移除该标签。`,
-      '提示',
+      `确定删除以下 ${activeTags.length} 个标签？此操作将从所有题目中移除这些标签。\n\n${tagNames.join('、')}`,
+      '删除标签',
       { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
     )
-    await deleteQuestionTag(activeTag.id)
-    // 从列表移除
-    filterTags.value = filterTags.value.filter(t => t.id !== activeTag.id)
-    // 刷新题目和标签
+    await Promise.all(activeTags.map(t => deleteQuestionTag(t.id)))
+    const deletedIds = new Set(activeTags.map(t => t.id))
+    filterTags.value = filterTags.value.filter(t => !deletedIds.has(t.id))
     await fetchQuestions()
     await fetchTags()
-    ElMessage.success('标签已删除')
+    ElMessage.success(`已删除 ${activeTags.length} 个标签`)
   } catch (err) {
     if (err !== 'cancel') {
       console.error('删除标签失败:', err)
