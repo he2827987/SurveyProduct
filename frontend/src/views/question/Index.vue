@@ -104,7 +104,6 @@
               添加标签
             </el-button>
             <el-dropdown
-              v-if="filterTags.some(t => t.active)"
               trigger="click"
               style="margin-left: 8px;"
               @command="handleTagCommand"
