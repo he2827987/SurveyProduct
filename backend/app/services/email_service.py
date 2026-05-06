@@ -3,8 +3,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-RESEND_API_KEY = getattr(settings, 'RESEND_API_KEY', '')
-SITE_URL = getattr(settings, 'SITE_URL', 'https://surveyproduct.onrender.com')
+RESEND_API_KEY = settings.RESEND_API_KEY
+SITE_URL = settings.SITE_URL
 
 
 async def send_forgot_password_email(to_email: str, code: str, reset_link: str) -> bool:
