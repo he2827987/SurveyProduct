@@ -163,18 +163,18 @@ async def forgot_password(data: dict, db: Session = Depends(get_db)):
     if not db_user:
         raise HTTPException(status_code=404, detail="该邮箱未注册")
 
-    code = _generate_code()
-    expires = datetime.now(timezone.utc) + timedelta(minutes=settings.RESET_CODE_EXPIRE_MINUTES)
-    _reset_codes[email] = {"code": code, "expires": expires}
-
     from app.services.email_service import send_forgot_password_email, SITE_URL
-    reset_link = f"{SITE_URL}/login?reset_email={email}&reset_code={code}"
-    ok = await send_forgot_password_email(email, code, reset_link)
+    reset_token = create_access_token(
+        data={"sub": db_user.username, "type": "reset", "email": email},
+        expires_delta=timedelta(minutes=settings.RESET_CODE_EXPIRE_MINUTES)
+    )
+    reset_link = f"{SITE_URL}/reset-password?token={reset_token}"
+    ok = await send_forgot_password_email(email, db_user.username, reset_link, settings.RESET_CODE_EXPIRE_MINUTES)
     if not ok:
         raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
 
-    resend_noted = "（Resend未配置，验证码见下方）" if not settings.RESEND_API_KEY else ""
-    return {"message": "验证码已发送", "detail": f"验证码已发送至 {email}{resend_noted}", "code": code if not settings.RESEND_API_KEY else None}
+    noted = "（Resend未配置，验证码见下方）" if not settings.RESEND_API_KEY else ""
+    return {"message": "重置邮件已发送", "detail": f"重置邮件已发送至 {email}{noted}", "code": reset_token if not settings.RESEND_API_KEY else None}
 
 
 @router.post("/verify-reset-code")
@@ -202,29 +202,38 @@ async def verify_reset_code(data: dict):
 @router.post("/reset-password")
 async def reset_password(data: dict, db: Session = Depends(get_db)):
     email = data.get("email")
-    code = data.get("code")
     new_password = data.get("new_password")
-    if not email or not code or not new_password:
-        raise HTTPException(status_code=400, detail="邮箱、验证码和新密码不能为空")
-
+    token = data.get("token")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="新密码不能为空")
     if len(new_password) < 6:
         raise HTTPException(status_code=400, detail="密码长度不能少于6位")
 
-    entry = _reset_codes.get(email)
-    if not entry or not entry.get("verified"):
-        raise HTTPException(status_code=400, detail="请先完成验证码验证")
-
-    if entry["code"] != code:
-        raise HTTPException(status_code=400, detail="验证码错误")
-
-    if datetime.now(timezone.utc) > entry["expires"]:
-        _reset_codes.pop(email, None)
-        raise HTTPException(status_code=400, detail="验证码已过期，请重新发送")
+    if token:
+        from app.security import verify_token
+        try:
+            payload = verify_token(token)
+            if payload.get("type") != "reset":
+                raise HTTPException(status_code=400, detail="无效的重置链接")
+            email = payload.get("email", email)
+        except Exception:
+            raise HTTPException(status_code=400, detail="重置链接已过期或无效，请重新发送")
+    else:
+        code = data.get("code")
+        if not email or not code:
+            raise HTTPException(status_code=400, detail="邮箱、验证码和新密码不能为空")
+        entry = _reset_codes.get(email)
+        if not entry or not entry.get("verified"):
+            raise HTTPException(status_code=400, detail="请先完成验证码验证")
+        if entry["code"] != code:
+            raise HTTPException(status_code=400, detail="验证码错误")
+        if datetime.now(timezone.utc) > entry["expires"]:
+            _reset_codes.pop(email, None)
+            raise HTTPException(status_code=400, detail="验证码已过期，请重新发送")
 
     updated = user_service.update_user_password_by_email(db=db, email=email, new_password=new_password)
     if not updated:
         raise HTTPException(status_code=404, detail="用户不存在")
 
-    _reset_codes.pop(email, None)
     return {"message": "密码重置成功"}
 

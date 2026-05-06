@@ -7,9 +7,9 @@ RESEND_API_KEY = settings.RESEND_API_KEY
 SITE_URL = settings.SITE_URL
 
 
-async def send_forgot_password_email(to_email: str, code: str, reset_link: str) -> bool:
+async def send_forgot_password_email(to_email: str, username: str, reset_link: str, expire_minutes: int) -> bool:
     if not RESEND_API_KEY:
-        logger.warning(f"[EMAIL MOCK] 邮件未发送（Resend未配置）。收件人: {to_email}, 验证码: {code}, 重置链接: {reset_link}")
+        logger.warning(f"[EMAIL MOCK] 邮件未发送（Resend未配置）。收件人: {to_email}, 重置链接: {reset_link}")
         return True
 
     try:
@@ -22,18 +22,20 @@ async def send_forgot_password_email(to_email: str, code: str, reset_link: str) 
             <h1 style="color:#fff;margin:0;font-size:24px;">密码重置请求</h1>
           </div>
           <div style="background:#fff;padding:32px 24px;border:1px solid #e8e8e8;border-top:none;border-radius:0 0 12px 12px;">
-            <p style="font-size:16px;line-height:1.6;">您好，</p>
-            <p style="font-size:16px;line-height:1.6;">我们收到了您的密码重置请求。请使用以下验证码完成重置：</p>
-            <div style="background:#f7f7f7;border-radius:8px;padding:20px;text-align:center;margin:20px 0;">
-              <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#667eea;">{code}</span>
+            <p style="font-size:16px;line-height:1.6;">您好，{username}</p>
+            <p style="font-size:16px;line-height:1.6;">我们收到了您的密码重置请求。如果您想保留当前密码，可以直接使用以下登录信息登录：</p>
+            <div style="background:#f7f7f7;border-radius:8px;padding:20px;margin:20px 0;">
+              <p style="margin:0 0 8px;font-size:14px;color:#888;">登录邮箱</p>
+              <p style="margin:0;font-size:16px;font-weight:600;">{to_email}</p>
             </div>
-            <p style="font-size:16px;line-height:1.6;">或者点击下方按钮直接重置密码：</p>
+            <p style="font-size:16px;line-height:1.6;color:#555;text-align:center;">- - -</p>
+            <p style="font-size:16px;line-height:1.6;">如果您想设置新密码，请点击下方按钮：</p>
             <div style="text-align:center;margin:24px 0;">
               <a href="{reset_link}" style="display:inline-block;background:#667eea;color:#fff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:16px;font-weight:500;">
                 重置密码
               </a>
             </div>
-            <p style="font-size:14px;color:#999;line-height:1.6;">链接有效期为 {settings.RESET_CODE_EXPIRE_MINUTES} 分钟。如非本人操作，请忽略此邮件。</p>
+            <p style="font-size:14px;color:#999;line-height:1.6;">链接有效期为 {expire_minutes} 分钟，过期需重新发送。如非本人操作，请忽略此邮件。</p>
           </div>
         </div>
         """
