@@ -17,12 +17,16 @@ class Settings(BaseSettings):
     # LLM 配置
     OPENROUTER_API_KEY: str = ""  # 必须从环境变量获取
 
-    # SMTP 邮件配置（暂时可选，未配置时验证码打印到日志）
+    # SMTP 邮件配置（Resend）
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM: str = ""
+    SMTP_FROM: str = "onboarding@resend.dev"
+    RESEND_API_KEY: str = ""
+
+    # 站点地址（用于生成重置密码链接）
+    SITE_URL: str = "https://surveyproduct.onrender.com"
 
     # 验证码配置
     RESET_CODE_EXPIRE_MINUTES: int = 10

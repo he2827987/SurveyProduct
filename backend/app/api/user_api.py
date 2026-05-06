@@ -167,13 +167,14 @@ async def forgot_password(data: dict, db: Session = Depends(get_db)):
     expires = datetime.now(timezone.utc) + timedelta(minutes=settings.RESET_CODE_EXPIRE_MINUTES)
     _reset_codes[email] = {"code": code, "expires": expires}
 
-    from app.services.email_service import send_verification_code_email
-    ok = await send_verification_code_email(email, code)
+    from app.services.email_service import send_forgot_password_email, SITE_URL
+    reset_link = f"{SITE_URL}/login?reset_email={email}&reset_code={code}"
+    ok = await send_forgot_password_email(email, code, reset_link)
     if not ok:
         raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
 
-    smtp_note = "（SMTP未配置，验证码见下方）" if not settings.SMTP_HOST else ""
-    return {"message": "验证码已发送", "detail": f"验证码已发送至 {email}{smtp_note}", "code": code if not settings.SMTP_HOST else None}
+    resend_noted = "（Resend未配置，验证码见下方）" if not settings.RESEND_API_KEY else ""
+    return {"message": "验证码已发送", "detail": f"验证码已发送至 {email}{resend_noted}", "code": code if not settings.RESEND_API_KEY else None}
 
 
 @router.post("/verify-reset-code")
