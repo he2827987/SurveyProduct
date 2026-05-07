@@ -173,41 +173,87 @@
           <!-- 题库选择标签页：从现有题库中选择题目 -->
           <el-tab-pane label="题库选择" name="library">
             <div class="question-selection">
-              <!-- 题目分类侧边栏：按分类筛选题目 -->
               <div class="question-categories">
+                <div class="category-header">分类</div>
                 <div class="category-list">
                   <div
-                    v-for="category in categories"
-                    :key="category.id || 'all'"
                     class="category-item"
-                    :class="{ active: currentCategoryId === category.id }"
-                    @click="selectCategory(category.id)"
+                    :class="{ active: currentCategoryId === null }"
+                    @click="selectCategory(null)"
                   >
-                    {{ category.name }}
+                    全部
                   </div>
+                  <div
+                    v-for="cat in categoryList"
+                    :key="cat.id"
+                    class="category-item"
+                    :class="{ active: currentCategoryId === cat.id }"
+                    @click="selectCategory(cat.id)"
+                  >
+                    {{ cat.name }}
+                  </div>
+                </div>
+                <div class="category-header" style="margin-top: 16px;">标签</div>
+                <div class="tag-filter-list">
+                  <el-tag
+                    v-for="tag in filterTags"
+                    :key="tag.name"
+                    :type="tag.active ? '' : 'info'"
+                    :effect="tag.active ? 'dark' : 'plain'"
+                    class="filter-tag"
+                    @click="toggleTagFilter(tag)"
+                  >
+                    {{ tag.name }} ({{ tag.count }})
+                  </el-tag>
+                  <div v-if="filterTags.length === 0" class="no-tags">暂无标签</div>
                 </div>
               </div>
               
-              <!-- 题目列表区域：显示可选择的题目 -->
               <div class="question-list">
-                <!-- 全选/取消全选复选框 -->
+                <div class="question-filter-bar">
+                  <el-input
+                    v-model="questionSearch"                    placeholder="搜索题目文本..."
+                    clearable
+                    class="search-input"
+                    @input="debouncedSearch"
+                  >
+                    <template #prefix>
+                      <el-icon><Search /></el-icon>
+                    </template>
+                  </el-input>
+                  <el-select
+                    v-model="questionType"
+                    placeholder="题目类型"
+                    clearable
+                    class="type-select"
+                    :teleported="false"
+                    @change="fetchFilteredQuestions"
+                  >
+                    <el-option label="单选题" value="single_choice" />
+                    <el-option label="多选题" value="multi_choice" />
+                    <el-option label="排序题" value="sort_order" />
+                    <el-option label="填空题" value="text_input" />
+                    <el-option label="数字题" value="number_input" />
+                  </el-select>
+                </div>
+
                 <el-checkbox
                   v-model="selectAll"
                   @change="handleSelectAllChange"
                 >
                   全选/取消全选
                 </el-checkbox>
-                
-                <!-- 调试按钮 -->
-                <el-button @click="debugSelection" size="small" style="margin-left: 10px;">
-                  调试
-                </el-button>
+                <span class="selected-count">已选 {{ selectedQuestions.length }} 题</span>
                 
                 <el-divider />
                 
-                <!-- 题目选择复选框组 -->
-                <div class="question-checkbox-group">
-                  <!-- 遍历显示每个题目选项 -->
+                <div v-if="questionLoading" class="loading-hint">
+                  <el-icon class="is-loading"><Loading /></el-icon> 加载中...
+                </div>
+                <div v-else-if="libraryQuestions.length === 0" class="no-data-hint">
+                  暂无符合条件的题目
+                </div>
+                <div v-else class="question-checkbox-group">
                   <div
                     v-for="question in libraryQuestions"
                     :key="question.id"
@@ -221,13 +267,11 @@
                         @change="onQuestionChange(question.id)"
                       >
                       <div class="question-item">
-                        <!-- 题目类型标签：显示题目类型（单选/多选/填空） -->
                         <div class="question-type-tag">
                           <el-tag :type="getQuestionTypeTag(question.type).type" size="small">
                             {{ getQuestionTypeTag(question.type).label }}
                           </el-tag>
                         </div>
-                        <!-- 题目标题 -->
                         <div class="question-title">{{ question.text }}</div>
                       </div>
                     </label>
@@ -276,7 +320,7 @@
 // ===== 导入依赖 =====
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Loading } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
 import * as surveyApi from '@/api/survey'
 import * as questionApi from '@/api/question'
@@ -323,88 +367,71 @@ const formRules = {
 }
 
 // ===== 题目选择相关状态 =====
-const activeTab = ref('library') // 当前激活的标签页
-const currentCategoryId = ref(null) // 当前选中的分类ID，null表示全部
-const selectAll = ref(false) // 是否全选
-const selectedQuestions = ref([]) // 已选择的题目ID列表
+const activeTab = ref('library')
+const currentCategoryId = ref(null)
+const selectAll = ref(false)
+const selectedQuestions = ref([])
 
-// 监听选择变化
 watch(selectedQuestions, (newVal) => {
   console.log('选择变化:', newVal)
 }, { deep: true })
 
-// 题库分类数据
-const categories = ref([
-  { id: null, name: '全部' },
-  { id: 1, name: '满意度调查' },
-  { id: 2, name: '产品反馈' },
-  { id: 3, name: '工作环境' },
-  { id: 4, name: '薪资福利' }
-])
+const categoryList = ref([])
+const filterTags = ref([])
+const questionSearch = ref('')
+const questionType = ref(null)
+let searchTimer = null
 
-// 题库问题列表
-const libraryQuestions = ref([]) // 从后端获取的题目列表
-const questionLoading = ref(false) // 题目加载状态
+const debouncedSearch = () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => fetchFilteredQuestions(), 300)
+}
 
-// ===== API 调用函数 =====
+const libraryQuestions = ref([])
+const questionLoading = ref(false)
 
-/**
- * 获取全局题库题目
- * @param {number|null} categoryId - 分类ID，用于筛选特定分类的题目
- * @param {string|null} questionType - 题目类型，用于筛选特定类型的题目
- */
-const fetchGlobalQuestions = async (categoryId = null, questionType = null) => {
+const fetchCategories = async () => {
+  try {
+    const data = await questionApi.getQuestionCategories()
+    categoryList.value = Array.isArray(data) ? data : (data?.items || [])
+  } catch (e) {
+    console.error('获取分类失败:', e)
+  }
+}
+
+const fetchFilterTags = async () => {
+  try {
+    const data = await questionApi.getQuestionTags()
+    const tags = Array.isArray(data) ? data : (data?.items || [])
+    filterTags.value = tags.map(t => ({ name: t.name, count: t.question_count || 0, active: false }))
+  } catch (e) {
+    console.error('获取标签失败:', e)
+  }
+}
+
+const toggleTagFilter = (tag) => {
+  tag.active = !tag.active
+  fetchFilteredQuestions()
+}
+
+const fetchFilteredQuestions = async () => {
   questionLoading.value = true
   try {
-    console.log('获取题库题目...')
-    
-    // 构造查询参数
-    const params = {
-      skip: 0,
-      limit: 100 // 获取更多题目供选择
-    }
-    
-    // 添加分类筛选参数
-    if (categoryId !== null && categoryId !== undefined) {
-      params.category_id = categoryId
-    }
-    
-    // 添加类型筛选参数
-    if (questionType) {
-      params.type = questionType
-    }
-    
+    const params = { skip: 0, limit: 200 }
+    if (currentCategoryId.value != null) params.category_id = currentCategoryId.value
+    if (questionType.value) params.type = questionType.value
+    if (questionSearch.value.trim()) params.search = questionSearch.value.trim()
+    const activeTagNames = filterTags.value.filter(t => t.active).map(t => t.name)
+    if (activeTagNames.length > 0) params.tags = activeTagNames.join(',')
+
     const response = await questionApi.getGlobalQuestions(params)
-    
-    // 处理响应数据
-    if (response && response.items) {
-      libraryQuestions.value = response.items.map(question => ({
-        id: question.id,
-        text: question.text,
-        type: question.type, // 保持原始类型
-        category_id: question.category_id,
-        tags: question.tags || []
-      }))
-    } else if (Array.isArray(response)) {
-      libraryQuestions.value = response.map(question => ({
-        id: question.id,
-        text: question.text,
-        type: question.type, // 保持原始类型
-        category_id: question.category_id,
-        tags: question.tags || []
-      }))
-    } else {
-      libraryQuestions.value = []
-    }
-    
-    console.log('题库题目:', libraryQuestions.value)
-    console.log('题目数量:', libraryQuestions.value.length)
-    if (libraryQuestions.value.length > 0) {
-      console.log('第一个题目:', libraryQuestions.value[0])
-    }
+    const mapQ = (q) => ({ id: q.id, text: q.text, type: q.type, category_id: q.category_id, tags: q.tags || [] })
+    if (response?.items) libraryQuestions.value = response.items.map(mapQ)
+    else if (Array.isArray(response)) libraryQuestions.value = response.map(mapQ)
+    else libraryQuestions.value = []
   } catch (error) {
     console.error('获取题库题目失败:', error)
-    ElMessage.error('获取题库题目失败: ' + (error.message || '未知错误'))
+    ElMessage.error('获取题库题目失败')
     libraryQuestions.value = []
   } finally {
     questionLoading.value = false
@@ -455,8 +482,10 @@ const initPageData = async () => {
   }
   
   console.log('开始获取调研列表和题库数据...')
-  await fetchSurveys() // 获取调研列表
-  await fetchGlobalQuestions() // 获取题库题目
+  await fetchSurveys()
+  await fetchCategories()
+  await fetchFilterTags()
+  await fetchFilteredQuestions()
   
   // 检查是否处于编辑模式
   const editId = route.query.edit
@@ -638,21 +667,6 @@ const toggleQuestionSelection = (question) => {
   console.log('选中的题目:', selectedQuestions.value)
 }
 
-/**
- * 调试函数：检查选择状态
- */
-const debugSelection = () => {
-  console.log('=== 调试信息 ===')
-  console.log('题目列表:', libraryQuestions.value)
-  console.log('已选择题目:', selectedQuestions.value)
-  console.log('题目数量:', libraryQuestions.value.length)
-  console.log('选择数量:', selectedQuestions.value.length)
-}
-
-/**
- * 题目选择变化处理
- * @param {number} questionId - 题目ID
- */
 const onQuestionChange = (questionId) => {
   console.log('题目选择变化:', questionId)
   console.log('当前选择:', selectedQuestions.value)
@@ -816,14 +830,17 @@ const openCreateSurveyDialog = () => {
   createDialog.value.title = '创建调研'
   createDialog.value.isEdit = false
   createDialog.value.editId = null
-  // 重置表单数据
   createForm.value = {
     title: '',
     description: ''
   }
-  // 重置选择状态
   selectedQuestions.value = []
   selectAll.value = false
+  currentCategoryId.value = null
+  questionSearch.value = ''
+  questionType.value = null
+  filterTags.value.forEach(t => t.active = false)
+  fetchFilteredQuestions()
 }
 
 /**
@@ -874,8 +891,7 @@ const openEditSurveyDialog = async (surveyId) => {
  */
 const selectCategory = (categoryId) => {
   currentCategoryId.value = categoryId
-  // 根据分类筛选题目列表
-  fetchGlobalQuestions(categoryId)
+  fetchFilteredQuestions()
 }
 
 /**
@@ -975,7 +991,8 @@ const getQuestionTypeTag = (type) => {
     'single_choice': { label: '单选题', type: 'primary' },
     'multi_choice': { label: '多选题', type: 'success' },
     'text_input': { label: '填空题', type: 'warning' },
-    'number_input': { label: '数字题', type: 'info' }
+    'number_input': { label: '数字题', type: 'info' },
+    'sort_order': { label: '排序题', type: 'danger' }
   }
   return types[type] || { label: '未知', type: 'info' }
 }
@@ -1084,48 +1101,97 @@ const getQuestionTypeTag = (type) => {
 /* 题目选择容器 */
 .question-selection {
   display: flex;
-  height: 350px;
+  height: 450px;
   border: 1px solid #ebeef5;
   border-radius: 4px;
   overflow: hidden;
 }
 
-/* 题目分类侧边栏 */
 .question-categories {
-  width: 180px;
+  width: 200px;
   border-right: 1px solid #ebeef5;
   overflow-y: auto;
+  padding: 0 0 12px 0;
 }
 
-/* 分类列表 */
+.category-header {
+  padding: 10px 15px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #909399;
+  text-transform: uppercase;
+}
+
 .category-list {
-  padding: 10px 0;
+  padding: 0;
 }
 
-/* 分类项 */
 .category-item {
-  padding: 10px 15px;
+  padding: 8px 15px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s;
+  font-size: 14px;
 }
 
-/* 分类项悬停效果 */
 .category-item:hover {
   background-color: #f5f7fa;
 }
 
-/* 激活状态的分类项 */
 .category-item.active {
   background-color: #ecf5ff;
   color: #409EFF;
   font-weight: bold;
 }
 
-/* 题目列表区域 */
+.tag-filter-list {
+  padding: 0 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-tag {
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.no-tags {
+  color: #c0c4cc;
+  font-size: 12px;
+  padding: 4px 0;
+}
+
 .question-list {
   flex: 1;
   padding: 15px;
   overflow-y: auto;
+}
+
+.question-filter-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.question-filter-bar .search-input {
+  flex: 1;
+}
+
+.question-filter-bar .type-select {
+  width: 130px;
+}
+
+.selected-count {
+  margin-left: 12px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.loading-hint, .no-data-hint {
+  text-align: center;
+  color: #909399;
+  padding: 30px 0;
+  font-size: 14px;
 }
 
 /* 题目复选框项 */
