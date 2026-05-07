@@ -13,6 +13,7 @@ class Survey(Base):
     title = Column(String(255), index=True, nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(50), default="pending", nullable=False)  # pending, active, completed
+    is_anonymous = Column(Boolean, default=False, nullable=False)
 
     # 外键关联到 User 模型，表示问卷的创建者
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

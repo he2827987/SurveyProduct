@@ -73,12 +73,10 @@
             <!-- 操作列：提供查看、生成二维码、数据分析、删除等操作 -->
             <el-table-column label="操作" width="250" fixed="right">
               <template #default="scope">
-                <!-- 查看调研详情 -->
                 <el-button type="primary" link @click="viewSurvey(scope.row)">
                   查看
                 </el-button>
                 
-                <!-- 生成二维码：仅对未完成的调研显示，且只有创建者可以操作 -->
                 <el-button 
                   v-if="scope.row.status !== 'completed' && scope.row.isCreator" 
                   type="success" 
@@ -88,18 +86,10 @@
                   生成二维码
                 </el-button>
                 
-                <!-- 查看数据分析 -->
                 <el-button type="warning" link @click="viewAnalysis(scope.row)">
                   数据分析
                 </el-button>
                 
-                <!-- 详细答案 -->
-                <el-button type="primary" link @click="openSubjectiveDialog(scope.row)">
-                  详细答案
-                </el-button>
-                
-                
-                <!-- 编辑调研：点击时验证权限 -->
                 <el-button
                   type="info"
                   link
@@ -108,18 +98,25 @@
                   编辑
                 </el-button>
                 
-                <!-- 删除调研：仅对未完成的调研显示，点击时验证权限 -->
-                <el-popconfirm
-                  v-if="scope.row.status !== 'completed'"
-                  title="确定要删除此调研吗？"
-                  @confirm="deleteSurvey(scope.row)"
-                  confirm-button-text="确定"
-                  cancel-button-text="取消"
-                >
-                  <template #reference>
-                    <el-button type="danger" link>删除</el-button>
+                <el-dropdown trigger="click" @command="(cmd) => handleMoreCommand(cmd, scope.row)">
+                  <el-button type="primary" link>
+                    更多功能<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="subjective">
+                        详细答案
+                      </el-dropdown-item>
+                      <el-dropdown-item 
+                        v-if="scope.row.status !== 'completed'"
+                        command="delete"
+                        style="color: #F56C6C;"
+                      >
+                        删除
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
                   </template>
-                </el-popconfirm>
+                </el-dropdown>
               </template>
             </el-table-column>
           </el-table>
@@ -164,6 +161,17 @@
             :rows="3"
             placeholder="请输入调研描述"
           />
+        </el-form-item>
+        
+        <el-form-item label="匿名调研">
+          <el-switch
+            v-model="createForm.is_anonymous"
+            active-text="匿名"
+            inactive-text="实名"
+          />
+          <span style="margin-left: 10px; color: #909399; font-size: 12px;">
+            开启后，答题者信息将被隐藏
+          </span>
         </el-form-item>
         
         <!-- 题目选择区域：从题库中选择调研题目 -->
@@ -320,7 +328,7 @@
 // ===== 导入依赖 =====
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Loading } from '@element-plus/icons-vue'
+import { Search, Loading, ArrowDown } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
 import * as surveyApi from '@/api/survey'
 import * as questionApi from '@/api/question'
@@ -355,7 +363,8 @@ const createDialog = ref({
 const createFormRef = ref(null)
 const createForm = ref({
   title: '',
-  description: ''
+  description: '',
+  is_anonymous: false
 })
 
 // 表单验证规则
@@ -745,6 +754,20 @@ const openSubjectiveDialog = (survey) => {
   subjectiveDialog.value.visible = true
 }
 
+const handleMoreCommand = (command, survey) => {
+  if (command === 'subjective') {
+    openSubjectiveDialog(survey)
+  } else if (command === 'delete') {
+    ElMessageBox.confirm('确定要删除此调研吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }).then(() => {
+      deleteSurvey(survey)
+    }).catch(() => {})
+  }
+}
+
 /**
  * 下载二维码
  */
@@ -832,7 +855,8 @@ const openCreateSurveyDialog = () => {
   createDialog.value.editId = null
   createForm.value = {
     title: '',
-    description: ''
+    description: '',
+    is_anonymous: false
   }
   selectedQuestions.value = []
   selectAll.value = false
@@ -863,7 +887,8 @@ const openEditSurveyDialog = async (surveyId) => {
     // 填充表单数据
     createForm.value = {
       title: surveyData.title || '',
-      description: surveyData.description || ''
+      description: surveyData.description || '',
+      is_anonymous: surveyData.is_anonymous || false
     }
 
     // 设置已选择的题目
@@ -935,6 +960,7 @@ const createSurvey = async () => {
       const surveyData = {
         title: createForm.value.title,
         description: createForm.value.description,
+        is_anonymous: createForm.value.is_anonymous,
         question_ids: selectedQuestions.value
       }
 
@@ -957,7 +983,8 @@ const createSurvey = async () => {
       // 重置表单和选择
       createForm.value = {
         title: '',
-        description: ''
+        description: '',
+        is_anonymous: false
       }
       selectedQuestions.value = []
 

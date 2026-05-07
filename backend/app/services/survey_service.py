@@ -159,7 +159,8 @@ def create_survey(db: Session, survey: SurveyCreate, user_id: int):
         title=survey.title,
         description=survey.description,
         created_by_user_id=user_id,
-        organization_id=survey.organization_id
+        organization_id=survey.organization_id,
+        is_anonymous=survey.is_anonymous or False
     )
     db.add(db_survey)
     db.commit()
