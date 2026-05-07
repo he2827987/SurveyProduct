@@ -504,8 +504,8 @@ onBeforeUnmount(() => {
  */
 const loadOrganizations = async () => {
   try {
-    const res = await organizationAPI.getPublicOrganizations({ skip: 0, limit: 200 })
-    const list = res?.items || res || []
+    const res = await organizationAPI.getOrganizationsWithActiveSurveys()
+    const list = res || []
     organizations.value = list.map((item) => ({
       id: item.id,
       name: item.name

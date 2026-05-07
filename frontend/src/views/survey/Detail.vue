@@ -10,8 +10,8 @@
         <el-button type="primary" @click="editSurvey" v-if="survey.status !== 'completed'">
           编辑调研
         </el-button>
-        <el-button type="success" @click="generateQrCode" v-if="survey.status !== 'completed'">
-          生成二维码
+        <el-button type="success" @click="openPublishDialog" v-if="survey.status !== 'completed'">
+          发布调研
         </el-button>
         <el-button type="warning" @click="viewAnalysis">
           数据分析
@@ -141,19 +141,51 @@
       </el-result>
     </div>
 
-    <!-- 二维码对话框 -->
+    <!-- 发布调研对话框 -->
     <el-dialog
-      v-model="qrDialog.visible"
-      :title="qrDialog.title"
-      width="400px"
+      v-model="publishDialog.visible"
+      title="发布调研"
+      width="500px"
       center
     >
-      <QRCodeGenerator
-        :survey-id="qrDialog.surveyId"
-        :survey-title="qrDialog.title"
-        :survey-description="qrDialog.description"
-        :response-count="qrDialog.responseCount"
-      />
+      <el-form label-width="100px" label-position="top">
+        <el-form-item label="开始时间">
+          <el-date-picker
+            v-model="publishDialog.startTime"
+            type="datetime"
+            placeholder="选择开始时间（可选）"
+            style="width: 100%"
+            :teleported="false"
+          />
+        </el-form-item>
+        <el-form-item label="结束时间">
+          <el-date-picker
+            v-model="publishDialog.endTime"
+            type="datetime"
+            placeholder="选择结束时间（可选）"
+            style="width: 100%"
+            :teleported="false"
+          />
+        </el-form-item>
+      </el-form>
+      <div class="publish-actions">
+        <el-button @click="publishDialog.visible = false">取消</el-button>
+        <el-button type="primary" @click="confirmPublish" :loading="publishing">
+          发布并生成链接
+        </el-button>
+      </div>
+
+      <el-divider v-if="publishDialog.published" />
+
+      <div v-if="publishDialog.published">
+        <QRCodeGenerator
+          :survey-id="publishDialog.surveyId"
+          :survey-title="publishDialog.title"
+          :survey-description="publishDialog.description"
+          :response-count="publishDialog.responseCount"
+          :auto-generate="true"
+        />
+      </div>
     </el-dialog>
 
   </div>
@@ -170,15 +202,18 @@ import * as surveyApi from '@/api/survey'
 const route = useRoute()
 const router = useRouter()
 
-// 响应式数据
 const loading = ref(true)
+const publishing = ref(false)
 const survey = ref({})
-const qrDialog = ref({
+const publishDialog = ref({
   visible: false,
   title: '',
   surveyId: null,
   description: '',
-  responseCount: 0
+  responseCount: 0,
+  startTime: null,
+  endTime: null,
+  published: false
 })
 // 页面加载时获取调研详情
 onMounted(() => {
@@ -217,13 +252,34 @@ const editSurvey = () => {
   router.push(`/survey?edit=${survey.value.id}`)
 }
 
-// 生成二维码
-const generateQrCode = () => {
-  qrDialog.value.title = survey.value.title
-  qrDialog.value.surveyId = survey.value.id
-  qrDialog.value.description = survey.value.description || ''
-  qrDialog.value.responseCount = survey.value.responseCount || 0
-  qrDialog.value.visible = true
+const openPublishDialog = () => {
+  publishDialog.value.title = survey.value.title
+  publishDialog.value.surveyId = survey.value.id
+  publishDialog.value.description = survey.value.description || ''
+  publishDialog.value.responseCount = survey.value.responseCount || 0
+  publishDialog.value.startTime = survey.value.startTime ? new Date(survey.value.startTime) : null
+  publishDialog.value.endTime = survey.value.endTime ? new Date(survey.value.endTime) : null
+  publishDialog.value.published = false
+  publishDialog.value.visible = true
+}
+
+const confirmPublish = async () => {
+  try {
+    publishing.value = true
+    await surveyApi.updateSurveyStatus(publishDialog.value.surveyId, {
+      status: 'active',
+      start_time: publishDialog.value.startTime ? publishDialog.value.startTime.toISOString() : null,
+      end_time: publishDialog.value.endTime ? publishDialog.value.endTime.toISOString() : null
+    })
+    publishDialog.value.published = true
+    survey.value.status = 'active'
+    ElMessage.success('调研已发布')
+  } catch (error) {
+    console.error('发布调研失败:', error)
+    ElMessage.error('发布调研失败')
+  } finally {
+    publishing.value = false
+  }
 }
 
 // 查看数据分析
@@ -391,6 +447,13 @@ const getQuestionTypeTag = (type) => {
 .error-container {
   padding: 40px;
   text-align: center;
+}
+
+.publish-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 @media (max-width: 768px) {

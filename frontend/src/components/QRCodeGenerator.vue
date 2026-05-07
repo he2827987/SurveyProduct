@@ -43,14 +43,14 @@
     <div v-else class="generate-section">
       <el-button type="primary" size="large" @click="generateQRCode" :loading="generating">
         <el-icon><Document /></el-icon>
-        生成调研二维码
+        生成调研链接
       </el-button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as surveyApi from '@/api/survey'
 import { Calendar, User, Download, CopyDocument, Share, Document, Link } from '@element-plus/icons-vue'
@@ -72,6 +72,10 @@ const props = defineProps({
   responseCount: {
     type: Number,
     default: 0
+  },
+  autoGenerate: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -81,6 +85,12 @@ const downloading = ref(false)
 const copying = ref(false)
 
 const surveyFillUrl = computed(() => getSurveyFillUrl(props.surveyId))
+
+onMounted(async () => {
+  if (props.autoGenerate) {
+    await generateQRCode()
+  }
+})
 
 const expireTime = computed(() => {
   return '永久有效'

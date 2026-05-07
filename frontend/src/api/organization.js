@@ -47,6 +47,10 @@ export function getPublicOrganizations(params = {}) {
   return request.get('/organizations/public/', { params })
 }
 
+export function getOrganizationsWithActiveSurveys() {
+  return request.get('/organizations/active-surveys/')
+}
+
 export function getPublicDepartments(organizationId, params = {}) {
   return request.get(`/organizations/${organizationId}/departments/public`, { params })
 }

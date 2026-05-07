@@ -81,6 +81,28 @@ def read_public_organizations(
     organizations = crud.get_public_organizations(db, skip=skip, limit=limit)
     return organizations
 
+@router.get("/organizations/active-surveys/", response_model=List[schemas.OrganizationResponse])
+def read_organizations_with_active_surveys(
+    db: Session = Depends(deps.get_db),
+) -> Any:
+    """
+    获取拥有活跃调研（status='active'）的组织列表。
+    用于填写页面选择组织。
+    """
+    from app.models.survey import Survey as SurveyModel
+    from app.models.organization import Organization as OrgModel
+    active_org_ids = (
+        db.query(SurveyModel.organization_id)
+        .filter(SurveyModel.status == 'active', SurveyModel.organization_id.isnot(None))
+        .distinct()
+        .all()
+    )
+    org_ids = [row[0] for row in active_org_ids if row[0] is not None]
+    if not org_ids:
+        return []
+    organizations = db.query(OrgModel).filter(OrgModel.id.in_(org_ids)).all()
+    return organizations
+
 @router.get("/organizations/by-users", response_model=List[schemas.OrganizationResponse])
 def read_organizations_with_users(
     db: Session = Depends(deps.get_db),
