@@ -174,6 +174,20 @@
           </span>
         </el-form-item>
         
+        <el-form-item label="有效期">
+          <el-date-picker
+            v-model="createForm.dateRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            :teleported="false"
+            style="width: 100%;"
+          />
+        </el-form-item>
+        
         <!-- 题目选择区域：从题库中选择调研题目 -->
         <el-divider content-position="left">题目选择</el-divider>
         
@@ -364,7 +378,8 @@ const createFormRef = ref(null)
 const createForm = ref({
   title: '',
   description: '',
-  is_anonymous: false
+  is_anonymous: false,
+  dateRange: null
 })
 
 // 表单验证规则
@@ -856,7 +871,8 @@ const openCreateSurveyDialog = () => {
   createForm.value = {
     title: '',
     description: '',
-    is_anonymous: false
+    is_anonymous: false,
+    dateRange: null
   }
   selectedQuestions.value = []
   selectAll.value = false
@@ -888,7 +904,10 @@ const openEditSurveyDialog = async (surveyId) => {
     createForm.value = {
       title: surveyData.title || '',
       description: surveyData.description || '',
-      is_anonymous: surveyData.is_anonymous || false
+      is_anonymous: surveyData.is_anonymous || false,
+      dateRange: (surveyData.start_time && surveyData.end_time)
+        ? [surveyData.start_time, surveyData.end_time]
+        : null
     }
 
     // 设置已选择的题目
@@ -961,7 +980,9 @@ const createSurvey = async () => {
         title: createForm.value.title,
         description: createForm.value.description,
         is_anonymous: createForm.value.is_anonymous,
-        question_ids: selectedQuestions.value
+        question_ids: selectedQuestions.value,
+        start_time: createForm.value.dateRange ? createForm.value.dateRange[0] : null,
+        end_time: createForm.value.dateRange ? createForm.value.dateRange[1] : null
       }
 
       let response
@@ -984,7 +1005,8 @@ const createSurvey = async () => {
       createForm.value = {
         title: '',
         description: '',
-        is_anonymous: false
+        is_anonymous: false,
+        dateRange: null
       }
       selectedQuestions.value = []
 
