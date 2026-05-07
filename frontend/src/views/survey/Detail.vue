@@ -184,6 +184,7 @@
           :survey-description="publishDialog.description"
           :response-count="publishDialog.responseCount"
           :auto-generate="true"
+          :end-time="publishDialog.endTime"
         />
       </div>
     </el-dialog>

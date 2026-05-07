@@ -76,6 +76,10 @@ const props = defineProps({
   autoGenerate: {
     type: Boolean,
     default: false
+  },
+  endTime: {
+    type: Date,
+    default: null
   }
 })
 
@@ -93,7 +97,8 @@ onMounted(async () => {
 })
 
 const expireTime = computed(() => {
-  return '永久有效'
+  if (!props.endTime) return '永久有效'
+  return props.endTime.toLocaleString('zh-CN')
 })
 
 const generateQRCode = async () => {
