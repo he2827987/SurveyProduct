@@ -13,6 +13,9 @@
         <el-button type="success" @click="openPublishDialog" v-if="survey.status !== 'completed'">
           发布调研
         </el-button>
+        <el-button type="success" @click="republishSurvey" v-if="survey.status === 'completed'">
+          再次发布
+        </el-button>
         <el-button type="warning" @click="viewAnalysis">
           数据分析
         </el-button>
@@ -195,7 +198,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElSkeleton, ElResult } from 'element-plus'
+import { ElMessage, ElMessageBox, ElSkeleton, ElResult } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import QRCodeGenerator from '@/components/QRCodeGenerator.vue'
 import * as surveyApi from '@/api/survey'
@@ -251,6 +254,47 @@ const goBack = () => {
 // 编辑调研
 const editSurvey = () => {
   router.push(`/survey?edit=${survey.value.id}`)
+}
+
+const republishSurvey = async () => {
+  try {
+    const baseTitle = survey.value.title || ''
+    const baseTitleClean = baseTitle.replace(/-\s*\d+$/, '').replace(/\(\d+\)\s*$/, '').trim()
+    const questions = survey.value.questions || []
+    const questionIds = questions.map(q => q.id)
+
+    const newTitle = `${baseTitleClean} - 2`
+    const newSurvey = await surveyApi.createSurvey({
+      title: newTitle,
+      description: survey.value.description || '',
+      organization_id: survey.value.organization_id || null,
+      question_ids: questionIds,
+      is_anonymous: survey.value.is_anonymous || false
+    })
+
+    await ElMessageBox.confirm(
+      `调研"${newTitle}"已创建，是否立即发布？`,
+      '再次发布',
+      { confirmButtonText: '立即发布', cancelButtonText: '查看详情', type: 'info' }
+    ).then(async () => {
+      const endTime = new Date()
+      endTime.setHours(endTime.getHours() + 24)
+      await surveyApi.updateSurveyStatus(newSurvey.id, {
+        status: 'active',
+        start_time: new Date().toISOString(),
+        end_time: endTime.toISOString()
+      })
+      ElMessage.success('调研已发布')
+      router.push(`/surveys/${newSurvey.id}`)
+    }).catch(() => {
+      router.push(`/surveys/${newSurvey.id}`)
+    })
+  } catch (error) {
+    if (error !== 'cancel' && error?.toString() !== 'cancel') {
+      console.error('再次发布失败:', error)
+      ElMessage.error('再次发布失败')
+    }
+  }
 }
 
 const openPublishDialog = () => {
