@@ -234,6 +234,15 @@ const fetchSurveyDetail = async (surveyId) => {
     
     // 使用新的调研详情API端点
     const response = await surveyApi.getSurveyDetail(surveyId)
+    if (response.questions) {
+      response.questions.forEach(q => {
+        if (q.options && Array.isArray(q.options)) {
+          q.options = q.options.map(opt =>
+            typeof opt === 'object' && opt !== null && opt.text !== undefined ? opt.text : opt
+          )
+        }
+      })
+    }
     survey.value = response
     
     console.log('调研详情:', survey.value)

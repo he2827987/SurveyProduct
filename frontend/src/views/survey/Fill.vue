@@ -561,6 +561,11 @@ const loadSurveyData = async () => {
           question.trigger_options = []
         }
       }
+      if (question.options && Array.isArray(question.options)) {
+        question.options = question.options.map(opt =>
+          typeof opt === 'object' && opt !== null && opt.text !== undefined ? opt.text : opt
+        )
+      }
     })
     
     // 存储所有题目（包括关联题）
