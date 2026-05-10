@@ -90,7 +90,16 @@ def get_survey(
     if cast(int, db_survey.created_by_user_id) != cast(int, current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权访问此问卷")
 
-    return db_survey
+    # 实时计算答题人数和题目数量
+    response_count = db.query(func.count(SurveyAnswer.id)).filter(SurveyAnswer.survey_id == survey_id).scalar() or 0
+    question_count = db.query(func.count(SurveyQuestion.id)).filter(SurveyQuestion.survey_id == survey_id).scalar() or 0
+
+    # 将动态字段附加到返回结果
+    result = db_survey
+    object.__setattr__(result, 'response_count', response_count)
+    object.__setattr__(result, 'question_count', question_count)
+
+    return result
 
 @router.get("/", response_model=List[SurveyResponse])
 def get_user_surveys(
@@ -106,6 +115,14 @@ def get_user_surveys(
     print(f"获取用户 {current_user.id} ({current_user.username}) 的调研列表")
     surveys = survey_service.get_surveys_by_user(db=db, user_id=cast(int, current_user.id), skip=skip, limit=limit)
     print(f"找到 {len(surveys)} 个调研")
+
+    # 实时计算每个调研的答题人数和题目数量
+    for s in surveys:
+        rc = db.query(func.count(SurveyAnswer.id)).filter(SurveyAnswer.survey_id == s.id).scalar() or 0
+        qc = db.query(func.count(SurveyQuestion.id)).filter(SurveyQuestion.survey_id == s.id).scalar() or 0
+        object.__setattr__(s, 'response_count', rc)
+        object.__setattr__(s, 'question_count', qc)
+
     return surveys
 
 @router.get("/global/all", response_model=List[SurveyResponse])
@@ -130,6 +147,13 @@ def get_global_surveys(
         status_filter=status_filter,
         sort_by=sort_by
     )
+
+    for s in surveys:
+        rc = db.query(func.count(SurveyAnswer.id)).filter(SurveyAnswer.survey_id == s.id).scalar() or 0
+        qc = db.query(func.count(SurveyQuestion.id)).filter(SurveyQuestion.survey_id == s.id).scalar() or 0
+        object.__setattr__(s, 'response_count', rc)
+        object.__setattr__(s, 'question_count', qc)
+
     return surveys
 
 @router.put("/{survey_id}", response_model=SurveyResponse)

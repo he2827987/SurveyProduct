@@ -50,15 +50,24 @@
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
-            {{ formatDate(survey.createdAt) }}
+            {{ formatDate(survey.created_at || survey.createdAt) }}
           </el-descriptions-item>
           <el-descriptions-item label="更新时间">
-            {{ formatDate(survey.updatedAt) }}
+            {{ formatDate(survey.updated_at || survey.updatedAt) }}
           </el-descriptions-item>
-          <el-descriptions-item label="答题人数" :span="2">
-            {{ survey.responseCount || 0 }} 人
+          <el-descriptions-item label="答题人数">
+            {{ survey.response_count || 0 }} 人
           </el-descriptions-item>
-          <el-descriptions-item label="调研描述" :span="2">
+          <el-descriptions-item v-if="survey.start_time" label="开始时间">
+            {{ formatDate(survey.start_time) }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="survey.end_time" label="结束时间">
+            {{ formatDate(survey.end_time) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="匿名调研" v-if="survey.is_anonymous !== undefined">
+            {{ survey.is_anonymous ? '是' : '否' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="调研描述">
             {{ survey.description || '暂无描述' }}
           </el-descriptions-item>
         </el-descriptions>
@@ -101,7 +110,7 @@
       </el-card>
 
       <!-- 答题统计卡片 -->
-      <el-card class="stats-card" v-if="survey.responseCount > 0">
+      <el-card class="stats-card" v-if="(survey.response_count || 0) > 0">
         <template #header>
           <div class="card-header">
             <span>答题统计</span>
@@ -111,7 +120,7 @@
         <el-row :gutter="20">
           <el-col :span="8">
             <div class="stat-item">
-              <div class="stat-value">{{ survey.responseCount }}</div>
+              <div class="stat-value">{{ survey.response_count || 0 }}</div>
               <div class="stat-label">总答题人数</div>
             </div>
           </el-col>
@@ -232,10 +241,10 @@ const fetchSurveyDetail = async (surveyId) => {
   try {
     loading.value = true
     
-    // 使用新的调研详情API端点
-    const response = await surveyApi.getSurveyDetail(surveyId)
-    if (response.questions) {
-      response.questions.forEach(q => {
+    // 使用详情API获取基本信息和题目
+    const detail = await surveyApi.getSurveyDetail(surveyId)
+    if (detail.questions) {
+      detail.questions.forEach(q => {
         if (q.options && Array.isArray(q.options)) {
           q.options = q.options.map(opt =>
             typeof opt === 'object' && opt !== null && opt.text !== undefined ? opt.text : opt
@@ -243,7 +252,22 @@ const fetchSurveyDetail = async (surveyId) => {
         }
       })
     }
-    survey.value = response
+
+    // 通过认证API获取实时数据（答题人数、时间等）
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      try {
+        const full = await surveyApi.getSurveyById(surveyId)
+        detail.status = full.status
+        detail.response_count = full.response_count ?? detail.response_count ?? 0
+        detail.start_time = full.start_time
+        detail.end_time = full.end_time
+        detail.is_anonymous = full.is_anonymous
+      } catch (e) {
+        console.log('获取完整调研数据失败（未登录）:', e.message)
+      }
+    }
+    survey.value = detail
     
     console.log('调研详情:', survey.value)
   } catch (error) {

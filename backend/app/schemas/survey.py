@@ -67,11 +67,11 @@ class SurveyResponse(BaseModel):
     is_anonymous: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    questions: Optional[list] = None  # 关联的题目列表（通过中间表获取）
-    question_count: int = 0
-    response_count: int = 0
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    questions: Optional[list] = None
+    question_count: int = 0
+    response_count: int = 0
 
     class Config:
         from_attributes = True # 兼容 SQLAlchemy 模型
