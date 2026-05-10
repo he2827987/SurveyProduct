@@ -53,6 +53,27 @@ def get_public_departments(
     ).all()
     return departments
 
+@router.get("/organizations/{org_id}/departments/public/tree")
+def get_public_department_tree(
+    org_id: int,
+    db: Session = Depends(get_db),
+):
+    """获取公开的组织部门树结构（无需认证）"""
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="组织不存在"
+        )
+
+    root_departments = db.query(Department).filter(
+        Department.organization_id == org_id,
+        Department.parent_id == None,
+        Department.is_active == True
+    ).all()
+
+    return build_department_tree(root_departments, db)
+
 @router.get("/organizations/{org_id}/departments/tree", response_model=List[DepartmentResponse])
 def get_department_tree(
     org_id: int,

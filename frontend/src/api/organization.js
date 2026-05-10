@@ -55,6 +55,10 @@ export function getPublicDepartments(organizationId, params = {}) {
   return request.get(`/organizations/${organizationId}/departments/public`, { params })
 }
 
+export function getPublicDepartmentTree(organizationId) {
+  return request.get(`/organizations/${organizationId}/departments/public/tree`)
+}
+
 /**
  * 根据ID获取组织详情
  * @param {number} organizationId - 组织ID

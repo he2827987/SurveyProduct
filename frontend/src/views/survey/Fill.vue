@@ -69,19 +69,16 @@
           </el-form-item>
           
           <el-form-item label="部门" prop="department">
-            <el-select 
+            <el-tree-select
               v-model="respondentInfo.department"
+              :data="departmentTree"
+              :props="{ label: 'name', value: 'id', children: 'children' }"
               placeholder="请选择您的部门"
               style="width: 100%"
+              check-strictly
               clearable
-            >
-              <el-option 
-                v-for="dept in departments"
-                :key="dept.id"
-                :label="dept.name"
-                :value="dept.id"
-              />
-            </el-select>
+              :render-after-expand="false"
+            />
           </el-form-item>
           
           <el-form-item label="职位" prop="position">
@@ -364,6 +361,7 @@ const respondentRules = {
 
 // ===== 部门职位数据 =====
 const departments = ref([])
+const departmentTree = ref([])
 const organizations = ref([])
 
 const positions = ref([
@@ -522,14 +520,28 @@ const loadOrganizations = async () => {
 const onOrganizationChange = async (orgId) => {
   respondentInfo.value.department = null
   departments.value = []
+  departmentTree.value = []
   if (!orgId) return
   try {
-    const res = await organizationAPI.getPublicDepartments(orgId)
-    departments.value = res || []
+    const res = await organizationAPI.getPublicDepartmentTree(orgId)
+    departmentTree.value = res || []
+    departments.value = flattenDepartments(res || [])
   } catch (err) {
-    console.error('加载部门失败:', err)
+    console.error('加载部门树失败:', err)
     departments.value = []
+    departmentTree.value = []
   }
+}
+
+function flattenDepartments(tree) {
+  const result = []
+  for (const node of tree) {
+    result.push({ id: node.id, name: node.name })
+    if (node.children && node.children.length > 0) {
+      result.push(...flattenDepartments(node.children))
+    }
+  }
+  return result
 }
 
 /**

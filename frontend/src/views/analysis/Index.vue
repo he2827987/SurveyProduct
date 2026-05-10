@@ -50,11 +50,8 @@
           <div class="filter-item">
             <span class="filter-label">分组方式：</span>
             <el-select v-model="groupBy" placeholder="请选择分组方式" class="filter-select" @change="handleGroupChange">
-              <el-option v-if="statsMode === 'score'" label="按部门" value="department" />
-              <el-option v-if="statsMode === 'score'" label="按职位" value="position" />
-              <el-option v-if="statsMode === 'score'" label="按问题得分" value="question" />
-              <el-option v-if="statsMode === 'option_count'" label="按部门" value="department" />
-              <el-option v-if="statsMode === 'option_count'" label="按职位" value="position" />
+              <el-option label="按部门" value="department" />
+              <el-option label="按职位" value="position" />
             </el-select>
           </div>
 
@@ -333,22 +330,12 @@ const loadAnalysisData = async () => {
 }
 
 const loadScoreData = async () => {
-  if (groupBy.value === 'question') {
-    const scores = await analyticsApi.getQuestionScores(selectedSurvey.value)
-    chartData.value = (scores || []).map(item => ({
-      name: item.question_text
-        ? (item.question_text.length > 12 ? item.question_text.substring(0, 12) + '...' : item.question_text)
-        : `Q${item.question_id}`,
-      value: item.avg_score || 0
-    }))
-  } else {
-    const response = await analyticsApi.getSurveyAnalytics(selectedSurvey.value, groupBy.value)
-    const stats = response?.stats || response || []
-    chartData.value = stats.map(item => ({
-      name: item.key || item.dimension_value || '未知',
-      value: item.average_score || item.avg_score || item.total_score_sum || 0
-    }))
-  }
+  const response = await analyticsApi.getSurveyAnalytics(selectedSurvey.value, groupBy.value)
+  const stats = response?.stats || response || []
+  chartData.value = stats.map(item => ({
+    name: item.key || item.dimension_value || '未知',
+    value: item.average_score || item.avg_score || item.total_score_sum || 0
+  }))
 }
 
 const loadOptionCountData = async () => {
