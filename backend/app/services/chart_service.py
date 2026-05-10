@@ -113,8 +113,12 @@ def get_question_option_stats(
                     elif isinstance(user_ans, (int, float)):
                         selected_options = [str(user_ans)]
                         
-                    for opt_text in selected_options:
-                        # 确保选项在统计map中（防止用户提交了不在选项列表中的值）
+                    for raw_opt in selected_options:
+                        opt_text = raw_opt
+                        if isinstance(raw_opt, dict) and 'text' in raw_opt:
+                            opt_text = raw_opt['text']
+                        elif not isinstance(raw_opt, str):
+                            opt_text = str(raw_opt)
                         if opt_text not in q_stats["options_stats"]:
                             q_stats["options_stats"][opt_text] = {}
                         
