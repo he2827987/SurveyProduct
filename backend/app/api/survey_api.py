@@ -14,6 +14,7 @@ from app.models.user import User as UserModel
 from app.models.survey import Survey as SurveyModel
 from app.models.answer import SurveyAnswer
 from app.models.question import Question
+from app.models.survey_question import SurveyQuestion
 from app.models.department import Department
 
 router = APIRouter(
