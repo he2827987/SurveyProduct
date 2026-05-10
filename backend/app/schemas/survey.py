@@ -11,8 +11,6 @@ class SurveyCreate(BaseModel):
     organization_id: Optional[int] = Field(None, description="组织ID")
     question_ids: Optional[list[int]] = Field(None, description="关联的题目ID列表")
     is_anonymous: Optional[bool] = Field(False, description="是否匿名调研")
-    start_time: Optional[datetime] = Field(None, description="开始时间")
-    end_time: Optional[datetime] = Field(None, description="结束时间")
 
     class Config:
         json_schema_extra = {
@@ -30,8 +28,6 @@ class SurveyUpdate(BaseModel):
     status: Optional[str] = Field(None, description="问卷状态")
     question_ids: Optional[list[int]] = Field(None, description="关联的题目ID列表")
     is_anonymous: Optional[bool] = Field(None, description="是否匿名调研")
-    start_time: Optional[datetime] = Field(None, description="开始时间")
-    end_time: Optional[datetime] = Field(None, description="结束时间")
 
     class Config:
         json_schema_extra = {
@@ -69,8 +65,8 @@ class SurveyResponse(BaseModel):
     organization_id: Optional[int] = None
     created_by_user_id: int
     is_anonymous: bool = False
-    created_at: datetime
-    updated_at: Optional[datetime] # updated_at 可能是 None，直到第一次更新
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     questions: Optional[list] = None  # 关联的题目列表（通过中间表获取）
     question_count: int = 0
     response_count: int = 0
